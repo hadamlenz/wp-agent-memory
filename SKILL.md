@@ -77,9 +77,11 @@ Base path: `/wp-json/agent-memory/v1`
 
 ## Content Encoding
 
-Send **raw characters** in `content` — never HTML entities. Write `=>` not `=&gt;`, `<` not `&lt;`. The CommonMark renderer handles HTML encoding on output. Stored entities get double-encoded and display literally (e.g., `&gt;`) on the rendered page.
+Send **raw characters** in `content` — never HTML entities. Write `=>` not `=&gt;`, `<` not `&lt;`. The plugin stores and retrieves content so agents always see the original characters back.
 
 Content is stored as a `wpam/markdown` Gutenberg block internally. Send plain Markdown — the plugin wraps and unwraps it transparently. Agents always receive clean Markdown back.
+
+Do not use JSON unicode escapes (e.g. `\u002d`) in content text. Write the actual character (`-`). Unicode escapes in block attribute JSON are decoded by the block editor during re-serialization, which causes a mismatch with stored content and triggers block validation errors.
 
 ## Agent Authorship
 

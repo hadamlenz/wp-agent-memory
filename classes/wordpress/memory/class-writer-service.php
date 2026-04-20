@@ -52,7 +52,9 @@ class Writer_Service {
             $post_data['post_author'] = $this->resolve_agent_user( (string) $input['agent'] );
         }
 
+        kses_remove_filters();
         $post_id = wp_insert_post( $post_data, true );
+        kses_init_filters();
 
         if ( is_wp_error( $post_id ) ) {
             return array( 'error' => $post_id->get_error_message() );
@@ -96,7 +98,9 @@ class Writer_Service {
         }
 
         if ( count( $post_fields ) > 1 ) {
+            kses_remove_filters();
             wp_update_post( $post_fields, true );
+            kses_init_filters();
         }
 
         $this->apply_meta( $id, $input );
