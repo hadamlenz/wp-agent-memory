@@ -1,0 +1,17 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "wpam/markdown",
+  "title": "Markdown",
+  "category": "text",
+  "description": "Stores Markdown content. Agents receive raw Markdown via the API; humans see rendered HTML on the frontend.",
+  "textdomain": "wp-agent-memory",
+  "attributes": {
+    "content": {
+      "type": "string",
+      "source": "html",
+      "__experimentalRole": "content"
+    }
+  },
+  "editorScript": "file:./build/index.js"
+}

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Unit-only test configuration.
+  This intentionally does not bootstrap the WordPress integration test suite.
+-->
+<phpunit bootstrap="tests/php/bootstrap.php" colors="true" cacheDirectory=".phpunit.cache">
+  <testsuites>
+    <testsuite name="WP Agent Memory Unit">
+      <directory>tests/php</directory>
+    </testsuite>
+  </testsuites>
+</phpunit>

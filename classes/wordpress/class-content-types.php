@@ -1,0 +1,241 @@
+<?php
+/**
+ * Registers CPT, taxonomies, and meta fields.
+ *
+ * @package WPAM
+ */
+
+namespace WPAM\WordPress;
+
+use WPAM\WordPress\Memory\Search_Service;
+
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
+
+class Content_Types {
+    /**
+     * Taxonomy slug => label suffix map used for registration.
+     *
+     * @var array<string, string>
+     */
+    private array $taxonomies = array(
+        'memory_repo'        => 'Repo',
+        'memory_package'     => 'Package',
+        'memory_topic'       => 'Topic',
+        'memory_symbol_type' => 'Symbol Type',
+    );
+
+    /**
+     * Register all content model pieces for the plugin.
+     */
+    public function register(): void {
+        $this->register_post_type();
+        $this->register_taxonomies();
+        $this->register_meta();
+        $this->register_cache_invalidation_hooks();
+    }
+
+    /**
+     * Register the memory_entry post type.
+     */
+    private function register_post_type(): void {
+        register_post_type(
+            'memory_entry',
+            array(
+                'labels'              => array(
+                    'name'          => __( 'Memory Entries', 'wp-agent-memory' ),
+                    'singular_name' => __( 'Memory Entry', 'wp-agent-memory' ),
+                ),
+                'public'              => true,
+                'show_in_rest'        => true,
+                'menu_position'       => 25,
+                'menu_icon'           => 'dashicons-archive',
+                'supports'            => array( 'title', 'editor', 'excerpt', 'custom-fields', 'revisions', 'author' ),
+                'has_archive'         => false,
+                'rewrite'             => array( 'slug' => 'memory-entry' ),
+                'map_meta_cap'        => false,
+                'capabilities'        => array(
+                    'edit_post'           => 'edit_pages',
+                    'read_post'           => 'read',
+                    'delete_post'         => 'delete_pages',
+                    'edit_posts'          => 'edit_pages',
+                    'edit_others_posts'   => 'edit_others_pages',
+                    'delete_posts'        => 'delete_pages',
+                    'delete_others_posts' => 'delete_others_pages',
+                    'publish_posts'       => 'publish_pages',
+                    'read_private_posts'  => 'read_private_pages',
+                    'create_posts'        => 'edit_pages',
+                ),
+                'delete_with_user'    => false,
+                'show_in_menu'        => true,
+                'show_in_admin_bar'   => true,
+                'show_in_nav_menus'   => false,
+                'exclude_from_search' => false,
+            )
+        );
+    }
+
+    /**
+     * Register filter taxonomies for repo/package/topic/symbol type dimensions.
+     */
+    private function register_taxonomies(): void {
+        foreach ( $this->taxonomies as $taxonomy => $label ) {
+            register_taxonomy(
+                $taxonomy,
+                array( 'memory_entry' ),
+                array(
+                    'labels'            => array(
+                        'name'          => sprintf( __( 'Memory %s', 'wp-agent-memory' ), $label ),
+                        'singular_name' => sprintf( __( 'Memory %s', 'wp-agent-memory' ), $label ),
+                    ),
+                    'public'            => true,
+                    'show_ui'           => true,
+                    'show_admin_column' => true,
+                    'show_in_rest'      => true,
+                    'show_tagcloud'     => true,
+                    'hierarchical'      => false,
+                    'capabilities'      => array(
+                        'manage_terms' => 'install_plugins',
+                        'edit_terms'   => 'install_plugins',
+                        'delete_terms' => 'install_plugins',
+                        'assign_terms' => 'edit_pages',
+                    ),
+                )
+            );
+        }
+    }
+
+    /**
+     * Register typed post meta used by search/ranking responses.
+     */
+    private function register_meta(): void {
+        $shared_args = array(
+            'single'       => true,
+            'show_in_rest' => true,
+            'type'         => 'string',
+            'auth_callback' => static function (): bool {
+                return current_user_can( 'edit_posts' );
+            },
+        );
+
+        register_post_meta(
+            'memory_entry',
+            'symbol_name',
+            array_merge(
+                $shared_args,
+                array(
+                    'sanitize_callback' => 'sanitize_text_field',
+                )
+            )
+        );
+
+        register_post_meta(
+            'memory_entry',
+            'source_url',
+            array_merge(
+                $shared_args,
+                array(
+                    'sanitize_callback' => 'esc_url_raw',
+                )
+            )
+        );
+
+        register_post_meta(
+            'memory_entry',
+            'source_path',
+            array_merge(
+                $shared_args,
+                array(
+                    'sanitize_callback' => 'sanitize_text_field',
+                )
+            )
+        );
+
+        register_post_meta(
+            'memory_entry',
+            'source_ref',
+            array_merge(
+                $shared_args,
+                array(
+                    'sanitize_callback' => 'sanitize_text_field',
+                )
+            )
+        );
+
+        register_post_meta(
+            'memory_entry',
+            'keywords',
+            array_merge(
+                $shared_args,
+                array(
+                    'sanitize_callback' => array( $this, 'sanitize_keywords' ),
+                )
+            )
+        );
+
+        register_post_meta(
+            'memory_entry',
+            'rank_bias',
+            array(
+                'single'        => true,
+                'show_in_rest'  => true,
+                'type'          => 'number',
+                'default'       => 0,
+                'auth_callback' => static function (): bool {
+                    return current_user_can( 'edit_posts' );
+                },
+                'sanitize_callback' => static function ( $value ): float {
+                    return (float) $value;
+                },
+            )
+        );
+    }
+
+    /**
+     * Normalize stored keywords into a comma-separated sanitized list.
+     *
+     * @param mixed $value Raw meta value.
+     *
+     * @return string
+     */
+    public function sanitize_keywords( $value ): string {
+        $value = is_string( $value ) ? $value : '';
+        $parts = array_filter( array_map( 'trim', explode( ',', $value ) ) );
+
+        return implode( ',', array_map( 'sanitize_text_field', $parts ) );
+    }
+
+    /**
+     * Invalidate transient cache whenever search-relevant content changes.
+     */
+    private function register_cache_invalidation_hooks(): void {
+        add_action( 'save_post_memory_entry', array( $this, 'invalidate_search_cache' ) );
+        add_action( 'deleted_post', array( $this, 'invalidate_search_cache_on_delete' ), 10, 2 );
+        add_action( 'set_object_terms', array( $this, 'invalidate_search_cache' ) );
+        add_action( 'updated_post_meta', array( $this, 'invalidate_search_cache' ) );
+    }
+
+    /**
+     * Cache invalidation callback for multiple hook signatures.
+     *
+     * @param mixed ...$args Ignored hook args.
+     */
+    public function invalidate_search_cache( ...$args ): void {
+        Search_Service::bump_cache_version();
+    }
+
+    /**
+     * Delete hook callback with post context guard.
+     *
+     * @param int      $post_id Deleted post ID.
+     * @param \WP_Post $post    Deleted post object.
+     */
+    public function invalidate_search_cache_on_delete( int $post_id, \WP_Post $post ): void {
+        if ( 'memory_entry' !== $post->post_type ) {
+            return;
+        }
+
+        $this->invalidate_search_cache();
+    }
+}

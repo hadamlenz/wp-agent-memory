@@ -1,0 +1,274 @@
+<?php
+/**
+ * Write operations for memory entries.
+ *
+ * @package WPAM
+ */
+
+namespace WPAM\WordPress\Memory;
+
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
+
+class Writer_Service {
+    /** @var Search_Service */
+    private Search_Service $search_service;
+
+    /**
+     * @param Search_Service $search_service Used to return shaped entry results after write operations.
+     */
+    public function __construct( Search_Service $search_service ) {
+        $this->search_service = $search_service;
+    }
+
+    /**
+     * Create a new published memory entry.
+     *
+     * @param array<string, mixed> $input
+     *
+     * @return array<string, mixed>
+     */
+    public function create( array $input ): array {
+        if ( empty( $input['title'] ) ) {
+            return array( 'error' => 'title is required.' );
+        }
+        if ( empty( $input['summary'] ) ) {
+            return array( 'error' => 'summary is required.' );
+        }
+        if ( empty( $input['topic'] ) || ! is_array( $input['topic'] ) ) {
+            return array( 'error' => 'topic must be a non-empty array of slugs.' );
+        }
+
+        $post_data = array(
+            'post_type'    => 'memory_entry',
+            'post_status'  => 'publish',
+            'post_title'   => sanitize_text_field( $input['title'] ),
+            'post_content' => isset( $input['content'] ) ? $this->wrap_content( $input['content'] ) : '',
+            'post_excerpt' => sanitize_textarea_field( $input['summary'] ),
+        );
+
+        if ( ! empty( $input['agent'] ) ) {
+            $post_data['post_author'] = $this->resolve_agent_user( (string) $input['agent'] );
+        }
+
+        $post_id = wp_insert_post( $post_data, true );
+
+        if ( is_wp_error( $post_id ) ) {
+            return array( 'error' => $post_id->get_error_message() );
+        }
+
+        $this->apply_meta( $post_id, $input );
+        $this->apply_taxonomies( $post_id, $input );
+
+        return $this->search_service->get_entry( $post_id ) ?? array( 'error' => 'Entry created but could not be retrieved.' );
+    }
+
+    /**
+     * Update fields on an existing memory entry. Only fields present in $input are changed.
+     *
+     * @param int                  $id
+     * @param array<string, mixed> $input
+     *
+     * @return array<string, mixed>
+     */
+    public function update( int $id, array $input ): array {
+        $post = get_post( $id );
+
+        if ( null === $post || 'memory_entry' !== $post->post_type ) {
+            return array( 'error' => 'Memory entry not found.' );
+        }
+
+        $post_fields = array( 'ID' => $id );
+
+        if ( isset( $input['title'] ) ) {
+            $post_fields['post_title'] = sanitize_text_field( $input['title'] );
+        }
+        if ( isset( $input['content'] ) ) {
+            $post_fields['post_content'] = $this->wrap_content( $input['content'] );
+        }
+        if ( isset( $input['summary'] ) ) {
+            $post_fields['post_excerpt'] = sanitize_textarea_field( $input['summary'] );
+        }
+
+        if ( ! empty( $input['agent'] ) ) {
+            $post_fields['post_author'] = $this->resolve_agent_user( (string) $input['agent'] );
+        }
+
+        if ( count( $post_fields ) > 1 ) {
+            wp_update_post( $post_fields, true );
+        }
+
+        $this->apply_meta( $id, $input );
+        $this->apply_taxonomies( $id, $input );
+
+        return $this->search_service->get_entry( $id ) ?? array( 'error' => 'Entry updated but could not be retrieved.' );
+    }
+
+    /**
+     * Trash a memory entry by ID.
+     *
+     * @param int $id
+     *
+     * @return array<string, mixed>
+     */
+    public function delete( int $id ): array {
+        $post = get_post( $id );
+
+        if ( null === $post || 'memory_entry' !== $post->post_type ) {
+            return array( 'error' => 'Memory entry not found.' );
+        }
+
+        wp_trash_post( $id );
+
+        return array(
+            'deleted' => true,
+            'id'      => $id,
+        );
+    }
+
+    /**
+     * Apply post meta fields from input, skipping absent keys.
+     *
+     * @param int                  $post_id
+     * @param array<string, mixed> $input
+     */
+    private function apply_meta( int $post_id, array $input ): void {
+        foreach ( array( 'symbol_name', 'source_path', 'source_ref' ) as $field ) {
+            if ( isset( $input[ $field ] ) ) {
+                update_post_meta( $post_id, $field, sanitize_text_field( $input[ $field ] ) );
+            }
+        }
+
+        if ( isset( $input['source_url'] ) ) {
+            update_post_meta( $post_id, 'source_url', esc_url_raw( $input['source_url'] ) );
+        }
+
+        if ( isset( $input['keywords'] ) && is_array( $input['keywords'] ) ) {
+            update_post_meta( $post_id, 'keywords', $this->sanitize_keywords( $input['keywords'] ) );
+        }
+
+        if ( isset( $input['rank_bias'] ) ) {
+            update_post_meta( $post_id, 'rank_bias', (float) $input['rank_bias'] );
+        }
+    }
+
+    /**
+     * Assign taxonomy terms from input, auto-creating slugs that don't exist yet.
+     *
+     * @param int                  $post_id
+     * @param array<string, mixed> $input
+     */
+    private function apply_taxonomies( int $post_id, array $input ): void {
+        $map = array(
+            'repo'        => 'memory_repo',
+            'package'     => 'memory_package',
+            'topic'       => 'memory_topic',
+            'symbol_type' => 'memory_symbol_type',
+        );
+
+        foreach ( $map as $input_key => $taxonomy ) {
+            if ( ! isset( $input[ $input_key ] ) || ! is_array( $input[ $input_key ] ) ) {
+                continue;
+            }
+
+            $term_ids = array();
+            foreach ( $input[ $input_key ] as $slug ) {
+                $term_id = $this->resolve_or_create_term( $taxonomy, (string) $slug );
+                if ( $term_id > 0 ) {
+                    $term_ids[] = $term_id;
+                }
+            }
+
+            wp_set_post_terms( $post_id, $term_ids, $taxonomy );
+        }
+    }
+
+    /**
+     * Return the term ID for a slug, creating the term if it does not exist.
+     *
+     * @param string $taxonomy
+     * @param string $slug
+     *
+     * @return int
+     */
+    private function resolve_or_create_term( string $taxonomy, string $slug ): int {
+        $existing = get_term_by( 'slug', $slug, $taxonomy );
+
+        if ( $existing instanceof \WP_Term ) {
+            return $existing->term_id;
+        }
+
+        $result = wp_insert_term( $slug, $taxonomy );
+
+        return is_wp_error( $result ) ? 0 : (int) $result['term_id'];
+    }
+
+    /**
+     * Find or create a WordPress user for the given agent slug, returning its ID.
+     *
+     * @param string $agent Raw agent identifier from input.
+     *
+     * @return int WordPress user ID, or 0 on failure.
+     */
+    private function resolve_agent_user( string $agent ): int {
+        $slug = sanitize_user( $agent, true );
+
+        if ( '' === $slug ) {
+            return 0;
+        }
+
+        $user = get_user_by( 'login', $slug );
+
+        if ( $user ) {
+            return $user->ID;
+        }
+
+        $user_id = wp_insert_user(
+            array(
+                'user_login'   => $slug,
+                'user_email'   => $slug . '@agents.internal',
+                'display_name' => $agent,
+                'role'         => 'author',
+                'user_pass'    => wp_generate_password( 32 ),
+            )
+        );
+
+        return is_wp_error( $user_id ) ? 0 : $user_id;
+    }
+
+    /**
+     * Wrap plain Markdown in a wpam/markdown block comment.
+     * Content that already starts with block markup is stored as-is.
+     *
+     * @param string $content Raw content from input.
+     *
+     * @return string
+     */
+    private function wrap_content( string $content ): string {
+        $content = trim( $content );
+
+        if ( '' === $content ) {
+            return '';
+        }
+
+        if ( str_starts_with( $content, '<!-- wp:' ) ) {
+            return $content;
+        }
+
+        return "<!-- wp:wpam/markdown -->\n{$content}\n<!-- /wp:wpam/markdown -->";
+    }
+
+    /**
+     * Normalize a keywords array into a comma-separated sanitized string.
+     *
+     * @param string[] $keywords
+     *
+     * @return string
+     */
+    public function sanitize_keywords( array $keywords ): string {
+        $parts = array_filter( array_map( 'trim', $keywords ) );
+
+        return implode( ',', array_map( 'sanitize_text_field', $parts ) );
+    }
+}
