@@ -57,6 +57,9 @@ class Core {
         $this->external_sources_service = new External_Sources_Service();
         $this->external_abilities       = new External_Abilities( $this->external_sources_service );
 
+        add_action( 'init', static function (): void {
+            load_plugin_textdomain( 'wp-agent-memory', false, dirname( plugin_basename( WPAM_PLUGIN_DIR . 'wp-agent-memory.php' ) ) . '/languages' );
+        } );
         add_action( 'init', array( $this->content_types, 'register' ) );
         add_action( 'init', array( $this->markdown_block, 'register' ) );
         add_action( 'enqueue_block_assets', array( $this->markdown_block, 'enqueue_styles' ) );

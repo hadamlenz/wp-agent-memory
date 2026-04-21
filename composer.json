@@ -1,6 +1,6 @@
 {
   "name": "hadamlenz/wp-agent-memory",
-  "description": "WordPress-native memory retrieval plugin for AI clients.",
+  "description": "Stores structured memory entries for AI agents and exposes them via a REST API and MCP abilities.",
   "type": "wordpress-plugin",
   "license": "GPL-2.0-or-later",
   "require": {

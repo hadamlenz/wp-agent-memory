@@ -1,5 +1,5 @@
 === WP Agent Memory ===
-Contributors: adamlenz
+Contributors: adrock42
 Donate link: https://github.com/adamlenz/wp-agent-memory
 Tags: ai, agents, memory, rest-api, mcp
 Requires at least: 6.8
@@ -81,14 +81,39 @@ Each time a memory appears in search results, its `usage_count` increments. When
 
 Yes. Unknown topic slugs are created automatically as taxonomy terms on first use.
 
+== External Services ==
+
+This plugin makes HTTP requests to the following external services when the corresponding abilities are used. No data is transmitted unless an agent explicitly calls these abilities.
+
+= GitHub API (api.github.com) =
+
+Used by the `agent-memory/search-github-issues` ability to search issues and pull requests on WordPress/gutenberg and WordPress/wordpress-develop. The search query string is sent to GitHub's API.
+
+* [GitHub Privacy Statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement)
+* [GitHub Terms of Service](https://docs.github.com/en/site-policy/github-terms/github-terms-of-service)
+
+= WordPress.org APIs =
+
+Used by `agent-memory/search-wp-docs` and `agent-memory/fetch-wp-doc` to search and retrieve pages from developer.wordpress.org, wordpress.org/documentation, and wordpress.org/news. The search query string or page URL is sent to the WordPress.org REST API.
+
+* [WordPress.org Privacy Policy](https://wordpress.org/about/privacy/)
+
+== Third-Party Libraries ==
+
+This plugin bundles the following open-source libraries in the `vendor/` directory:
+
+* [league/commonmark](https://commonmark.thephpleague.com/) — MIT License — Markdown parsing
+* [spatie/commonmark-highlighter](https://github.com/spatie/commonmark-highlighter) — MIT License — Syntax highlighting extension for CommonMark
+* [scrivo/highlight.php](https://github.com/scrivo/highlight.php) — BSD 3-Clause License — Syntax highlighting
+
+All bundled libraries are GPL-compatible.
+
 == Changelog ==
 
 = 0.1.0 =
-* Initial release
-* REST API: search, get-entry, list-recent, create-entry, update-entry, delete-entry, mark-useful
-* MCP abilities: all REST abilities plus search-wp-docs, fetch-wp-doc, search-github-issues
-* Usage-based ranking with log-scaled, time-decayed scoring bonus
-* Markdown block storage with transparent unwrapping on retrieval
+* Initial release — REST API, MCP abilities, usage-based ranking, Markdown block storage
+
+For the full changelog see [changelog.md](https://github.com/adamlenz/wp-agent-memory/blob/main/changelog.md).
 
 == Upgrade Notice ==
 

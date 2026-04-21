@@ -5,7 +5,7 @@
  * Description: Stores structured memory entries for AI agents and exposes them via a REST API and MCP abilities for search, retrieval, and usage-based ranking.
  * Version: 0.1.0
  * Author: H. Adam Lenz
- * Author URI: https://github.com/adamlenz
+ * Author URI: https://profiles.wordpress.org/adrock42/
  * License: GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: wp-agent-memory
