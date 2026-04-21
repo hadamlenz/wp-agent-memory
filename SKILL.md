@@ -265,4 +265,4 @@ Results: `{ count, results: [{ number, title, url, state, type, created_at, upda
 }
 ```
 
-**GitHub rate limits:** Unauthenticated requests are limited to ~10/minute. Set a `GITHUB_TOKEN` environment variable (a personal access token with public repo read scope) to raise this to 5000/hour. Rate limit errors surface as `{ "error": "GitHub rate limit exceeded. Set GITHUB_TOKEN env var for higher limits." }`.
+**GitHub rate limits:** Unauthenticated requests are limited to ~10/minute. Add a GitHub personal access token in **Settings → Agent Memory** (no scopes required for public repos) to raise this to 5,000/hour. Rate limit errors surface as `{ "error": "GitHub rate limit exceeded. Add a GitHub token in Settings > Agent Memory for higher limits." }`.

@@ -42,18 +42,20 @@ See `SKILL.md` in the plugin directory for the full agent workflow guide.
 2. Run `composer install` inside the plugin directory
 3. Activate the plugin in **Plugins > Installed Plugins**
 
-**Optional: MCP setup for Claude Code**
+**MCP setup for Claude Code / AI clients**
 
-To expose abilities via the MCP adapter:
+1. Install and activate the [WP MCP Adapter](https://github.com/WordPress/mcp-adapter) plugin alongside this one
+2. Create a WordPress user for your agent — role **Author** for read-only, **Editor** for read+write. The username can be anything, but if you want authorship tracked on entries, use the same value the agent passes as the `agent` parameter in write calls (for Claude Code that is the model slug, e.g. `claude-sonnet-4-6`)
+3. Generate an Application Password on that user's profile page
+4. Add the MCP server to your Claude Code config (see `README.md` for the full config block)
 
-1. Install and activate the [WP MCP Adapter](https://github.com/WordPress/mcp-adapter) plugin
-2. Set `MCP_ADAPTER_ENABLED=1` in your server environment or `.env` file
-3. Add the MCP server to your Claude Code config (see `README.md` for the full config block)
+Use the **Author** role when an agent should only search and retrieve memories (e.g. a coding assistant that reads context at task start). Use **Editor** when an agent also needs to save new memories or mark entries as useful. A read-only credential is safe to share across multiple machines or projects.
 
-**Environment variables**
+No environment variables are required. Abilities are automatically exposed once both plugins are active.
 
-* `MCP_ADAPTER_ENABLED` — set to `1` to enable MCP abilities (default: `0`)
-* `GITHUB_TOKEN` — GitHub personal access token for higher `search-github-issues` rate limits
+**Optional: GitHub token for higher rate limits**
+
+Go to **Settings → Agent Memory** and add a GitHub personal access token to increase `search-github-issues` rate limits from ~10/min to 5,000/hour. No scopes are required for public repos.
 
 == Frequently Asked Questions ==
 
@@ -63,7 +65,7 @@ WordPress 6.8 or higher. PHP 8.1 or higher.
 
 = Does this work without the MCP adapter? =
 
-Yes. All functionality is available via the REST API at `/wp-json/agent-memory/v1`. The MCP adapter is only needed if you want to use the abilities interface from an AI client like Claude Code.
+Yes. All functionality is available via the REST API at `/wp-json/agent-memory/v1`. The MCP adapter is only needed if you want to connect an AI client like Claude Code directly via MCP.
 
 = What is the MCP adapter? =
 

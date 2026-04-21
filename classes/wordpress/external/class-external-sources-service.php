@@ -25,8 +25,7 @@ class External_Sources_Service {
 	private ?string $github_token;
 
 	public function __construct() {
-		$token              = getenv( 'GITHUB_TOKEN' );
-		$this->github_token = ( false !== $token && '' !== $token ) ? $token : null;
+		$this->github_token = \WPAM\WordPress\Settings::get_github_token();
 	}
 
 	/**
@@ -342,7 +341,7 @@ class External_Sources_Service {
 
 		if ( in_array( $code, array( 403, 429 ), true ) ) {
 			if ( $is_github ) {
-				return 'GitHub rate limit exceeded. Set GITHUB_TOKEN env var for higher limits.';
+				return 'GitHub rate limit exceeded. Add a GitHub token in Settings > Agent Memory for higher limits.';
 			}
 			return sprintf( 'Request forbidden (HTTP %d).', $code );
 		}

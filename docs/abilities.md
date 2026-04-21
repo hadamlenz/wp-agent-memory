@@ -425,7 +425,7 @@ Search issues and pull requests on `WordPress/gutenberg` and/or `WordPress/wordp
 
 ### Rate limits
 
-Without a token: ~10 requests/minute. Set `GITHUB_TOKEN` (public repo read scope) in your environment to raise this to 5,000/hour. Rate limit errors return `{ "error": "GitHub rate limit exceeded. Set GITHUB_TOKEN env var for higher limits." }`.
+Without a token: ~10 requests/minute. Add a GitHub personal access token in **Settings → Agent Memory** to raise this to 5,000/hour (no scopes required for public repos). Rate limit errors return `{ "error": "GitHub rate limit exceeded. Add a GitHub token in Settings > Agent Memory for higher limits." }`.
 
 ### Example
 

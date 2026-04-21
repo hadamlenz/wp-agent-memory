@@ -36,8 +36,8 @@ class Core {
     private Abilities $abilities;
     /** @var Markdown_Block */
     private Markdown_Block $markdown_block;
-    /** @var MCP_Integration */
-    private MCP_Integration $mcp_integration;
+    /** @var Settings */
+    private Settings $settings;
     /** @var External_Sources_Service */
     private External_Sources_Service $external_sources_service;
     /** @var External_Abilities */
@@ -52,8 +52,8 @@ class Core {
         $this->writer_service  = new Writer_Service( $this->search_service );
         $this->rest_endpoints  = new Rest_Endpoints( $this->search_service, $this->writer_service );
         $this->abilities       = new Abilities( $this->search_service, $this->writer_service );
-        $this->markdown_block  = new Markdown_Block();
-        $this->mcp_integration          = new MCP_Integration();
+        $this->markdown_block           = new Markdown_Block();
+        $this->settings                 = new Settings();
         $this->external_sources_service = new External_Sources_Service();
         $this->external_abilities       = new External_Abilities( $this->external_sources_service );
 
@@ -67,7 +67,8 @@ class Core {
         add_action( 'wp_abilities_api_categories_init', array( $this->abilities, 'register_category' ) );
         add_action( 'wp_abilities_api_init', array( $this->abilities, 'register' ) );
         add_action( 'wp_abilities_api_init', array( $this->external_abilities, 'register' ) );
-        add_action( 'init', array( $this->mcp_integration, 'register' ) );
+        add_action( 'admin_menu', array( $this->settings, 'register_menu' ) );
+        add_action( 'admin_init', array( $this->settings, 'register_settings' ) );
     }
 
     /**

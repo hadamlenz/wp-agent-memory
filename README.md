@@ -28,39 +28,39 @@ The release zip includes compiled JS and Composer dependencies — no build step
 
 ## Configuration
 
-### Environment Variables
+### Agent User Setup
 
-Set these in your server environment or `.env` file:
+Every agent needs a dedicated WordPress user and an Application Password. The role determines what the agent can do:
 
-| Variable | Default | Description |
-|---|---|---|
-| `MCP_ADAPTER_ENABLED` | `0` | Set to `1` to expose abilities via the MCP adapter |
-| `GITHUB_TOKEN` | — | GitHub personal access token for higher API rate limits on `search-github-issues` |
-
-### Agent Setup
-
-Each agent that needs write access requires a dedicated WordPress user and an Application Password. Read-only agents also need credentials — the plugin requires authentication on all endpoints.
+| Role | Abilities |
+|---|---|
+| **Author** | Read-only — `search`, `get-entry`, `list-recent`, `search-wp-docs`, `fetch-wp-doc`, `search-github-issues` |
+| **Editor** | Read + write — all of the above plus `create-entry`, `update-entry`, `delete-entry`, `mark-useful` |
 
 **Per agent:**
 
-1. In WP Admin go to **Users → Add New** and create a user with the agent's slug as the username (e.g. `claude-sonnet-4-6`, role: Author)
-2. Open that user's profile and scroll to **Application Passwords**
-3. Enter a name that identifies where this credential will be used — e.g. `local-macbook` or `project-agent-memory` — then click **Add New Application Password**
-4. Copy the generated password (shown once)
-5. Base64-encode `username:password` — e.g. `claude-sonnet-4-6:XXXX XXXX XXXX XXXX XXXX XXXX`
-6. Add the credential to your MCP config (see below)
+1. In WP Admin go to **Users → Add New**. Set the role to **Author** for read-only or **Editor** for read+write.
+2. For the username, use whatever identifies the agent — any value works for authentication. If you also want authorship tracked on memory entries (so you can see which agent created or updated them), use the same value the agent will pass as the `agent` parameter in write calls. For Claude Code, that is the model slug shown in the interface (e.g. `claude-sonnet-4-6`, `claude-opus-4-7`).
+3. Open that user's profile and scroll to **Application Passwords**
+4. Enter a name identifying where this credential will be used (e.g. `local-macbook`) then click **Add New Application Password**
+5. Copy the generated password (shown once)
+6. Base64-encode `username:password` — e.g. `echo -n "claude-sonnet-4-6:XXXX XXXX XXXX XXXX XXXX XXXX" | base64`
+7. Use the encoded string as the `Authorization` header value in your MCP config (see below)
 
-The Application Password name is only a label for your reference. Use it to identify the machine or project so you can revoke one context without affecting others — a single agent user can have multiple Application Passwords.
+The Application Password name is just a label. Use it to identify the machine or project so you can revoke one credential without affecting others — a single user can have multiple Application Passwords.
 
-To revoke access: go to the user's profile in WP Admin and delete the specific Application Password.
+To revoke access: open the user's profile in WP Admin and delete the specific Application Password.
+
+**Read-only agents**
+
+Assigning the Author role is the recommended setup for agents that should only *consume* memory — for example, a coding assistant that searches prior solutions at the start of each task but delegates all memory writes to a separate agent or human curator. A read-only agent can call `search`, `get-entry`, `list-recent`, `search-wp-docs`, `fetch-wp-doc`, and `search-github-issues`, but any attempt to create, update, delete, or mark-useful will be rejected with a `403`. This makes it safe to share a read-only credential across multiple projects or machines without worrying about one context corrupting the memory store.
 
 ### MCP Setup (Claude Code / AI clients)
 
 The plugin exposes its abilities through the [WP MCP Adapter](https://github.com/WordPress/mcp-adapter) plugin — a community plugin under active development that is being considered for inclusion in WordPress core.
 
 1. Install and activate the mcp-adapter plugin alongside this one
-2. Set `MCP_ADAPTER_ENABLED=1` in your environment
-3. Add the server to your `.mcp.json` (project-level) or `~/.claude.json` (user-level):
+2. Add the server to your `.mcp.json` (project-level) or `~/.claude.json` (user-level):
 
 ```json
 {
@@ -76,7 +76,19 @@ The plugin exposes its abilities through the [WP MCP Adapter](https://github.com
 }
 ```
 
-Replace `yoursite.com` with your WordPress site URL and the `Authorization` value with the base64-encoded credential from the Agent Setup steps above.
+Replace `yoursite.com` with your WordPress site URL and the `Authorization` value with the base64-encoded credential from the Agent User Setup steps above.
+
+No environment variables are required. Abilities are automatically discoverable by the MCP adapter once both plugins are active.
+
+### GitHub Token (optional)
+
+To increase the GitHub API rate limit for `search-github-issues` from ~10 requests/minute to 5,000/hour:
+
+1. In WP Admin go to **Settings → Agent Memory**
+2. Paste a GitHub personal access token into the **GitHub Token** field
+3. Save — no scopes are required for public repository access
+
+Generate a token at [github.com/settings/tokens](https://github.com/settings/tokens). If you prefer to set it as a server environment variable (`GITHUB_TOKEN`), that will take precedence over the settings page value.
 
 ## Development
 
@@ -111,9 +123,7 @@ Supported hosts: `developer.wordpress.org` (plugin/theme handbooks, Code Referen
 
 The `agent-memory/search-github-issues` ability queries issues and PRs on `WordPress/gutenberg` and `WordPress/wordpress-develop`.
 
-Without a token: ~10 requests/minute per IP. With `GITHUB_TOKEN` set: 5,000/hour.
-
-To create a token: [github.com/settings/tokens](https://github.com/settings/tokens) — only **public repository read** scope is required.
+Without a token: ~10 requests/minute per IP. With a token: 5,000/hour. Configure the token in **Settings → Agent Memory** (see [Configuration](#configuration) above).
 
 ## For AI Agents
 

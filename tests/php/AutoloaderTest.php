@@ -15,7 +15,7 @@ final class AutoloaderTest extends TestCase {
         $classes    = array(
             'WPAM\\WordPress\\Core',
             'WPAM\\WordPress\\Memory\\Search_Service',
-            'WPAM\\WordPress\\MCP_Integration',
+            'WPAM\\WordPress\\Settings',
         );
 
         foreach ( $classes as $class_name ) {
