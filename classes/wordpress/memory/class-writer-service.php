@@ -52,6 +52,8 @@ class Writer_Service {
             ? $this->resolve_agent_user( (string) $input['agent'] )
             : get_current_user_id();
 
+        // kses filters would strip block comment delimiters (<!-- wp:wpam/markdown -->) from post_content.
+        // Bracket the insert with remove/init to preserve raw Markdown block markup.
         kses_remove_filters();
         $post_id = wp_insert_post( $post_data, true );
         kses_init_filters();
@@ -98,6 +100,7 @@ class Writer_Service {
         }
 
         if ( count( $post_fields ) > 1 ) {
+            // Same kses bracket as create — preserves block comment delimiters in post_content.
             kses_remove_filters();
             wp_update_post( $post_fields, true );
             kses_init_filters();
@@ -218,6 +221,10 @@ class Writer_Service {
     private function resolve_agent_user( string $agent ): int {
         $slug = sanitize_user( $agent, true );
 
+        // Note: this does NOT auto-create a WP user for unknown agent slugs — it falls back to
+        // the current authenticated user. The ability schema description "a WordPress user is created
+        // on first use" is aspirational; create the WP user manually before first agent writes
+        // if you want per-agent attribution in the admin Users list.
         if ( '' !== $slug ) {
             $user = get_user_by( 'login', $slug );
             if ( $user ) {
