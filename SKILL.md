@@ -33,7 +33,7 @@ Do not save:
 
 Base path: `/wp-json/agent-memory/v1`
 
-**Auth:** HTTP Basic. Read endpoints require `read` capability; write endpoints require `edit_pages` capability (editor role or above).
+**Auth:** HTTP Basic (WordPress Application Password). See [Authentication](#authentication) below.
 
 ### Search
 
@@ -138,13 +138,19 @@ Do not use JSON unicode escapes (e.g. `\u002d`) in content text. Write the actua
 
 ## Agent Authorship
 
-Pass `agent` as a stable slug on create and update to claim authorship. Use lowercase letters, numbers, and hyphens only (`[a-z0-9-]`) so slugs are portable across agent runtimes. A WordPress user with that slug is created automatically on first use (role: `author`, email: `{slug}@agents.internal`).
+Pass `agent` as a stable slug on create and update to claim authorship. Use lowercase letters, numbers, and hyphens only (`[a-z0-9-]`). The slug must match the WordPress username created during agent setup — if the user doesn't exist, authorship falls back to the authenticated user.
 
 ```json
-{ "agent": "assistant-v1" }
+{ "agent": "claude-sonnet-4-6" }
 ```
 
 The `author` field (display name) is returned in all entry and search responses.
+
+## Authentication
+
+All endpoints require HTTP Basic Auth using a WordPress Application Password. The credential is stored in your MCP config as an `Authorization` header — see the Agent Setup section in [README.md](README.md) for setup steps.
+
+Read endpoints require the `read` capability (Author role or above). Write endpoints (`create-entry`, `update-entry`, `delete-entry`, `mark-useful`) require `edit_pages` (Editor role or above).
 
 ---
 

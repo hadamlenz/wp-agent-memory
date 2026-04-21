@@ -254,6 +254,24 @@ class Rest_Endpoints {
     }
 
     /**
+     * POST /agent handler.
+     *
+     * @param WP_REST_Request $request
+     *
+     * @return WP_REST_Response|WP_Error
+     */
+    public function register_agent( WP_REST_Request $request ) {
+        $input  = $request->get_json_params() ?? array();
+        $result = $this->agent_service->register_agent( $input );
+
+        if ( isset( $result['error'] ) ) {
+            return new WP_Error( 'agent_memory_register_failed', $result['error'], array( 'status' => 400 ) );
+        }
+
+        return new WP_REST_Response( $result, 201 );
+    }
+
+    /**
      * POST /entry/<id>/useful handler.
      *
      * @param WP_REST_Request $request

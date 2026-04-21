@@ -37,24 +37,46 @@ Set these in your server environment or `.env` file:
 | `MCP_ADAPTER_ENABLED` | `0` | Set to `1` to expose abilities via the MCP adapter |
 | `GITHUB_TOKEN` | — | GitHub personal access token for higher API rate limits on `search-github-issues` |
 
+### Agent Setup
+
+Each agent that needs write access requires a dedicated WordPress user and an Application Password. Read-only agents also need credentials — the plugin requires authentication on all endpoints.
+
+**Per agent:**
+
+1. In WP Admin go to **Users → Add New** and create a user with the agent's slug as the username (e.g. `claude-sonnet-4-6`, role: Author)
+2. Open that user's profile and scroll to **Application Passwords**
+3. Enter a name that identifies where this credential will be used — e.g. `local-macbook` or `project-agent-memory` — then click **Add New Application Password**
+4. Copy the generated password (shown once)
+5. Base64-encode `username:password` — e.g. `claude-sonnet-4-6:XXXX XXXX XXXX XXXX XXXX XXXX`
+6. Add the credential to your MCP config (see below)
+
+The Application Password name is only a label for your reference. Use it to identify the machine or project so you can revoke one context without affecting others — a single agent user can have multiple Application Passwords.
+
+To revoke access: go to the user's profile in WP Admin and delete the specific Application Password.
+
 ### MCP Setup (Claude Code / AI clients)
 
 The plugin exposes its abilities through the [WP MCP Adapter](https://github.com/WordPress/mcp-adapter) plugin — a community plugin under active development that is being considered for inclusion in WordPress core.
 
 1. Install and activate the mcp-adapter plugin alongside this one
 2. Set `MCP_ADAPTER_ENABLED=1` in your environment
-3. Add the server to your Claude Code MCP config:
+3. Add the server to your `.mcp.json` (project-level) or `~/.claude.json` (user-level):
 
 ```json
 {
   "mcpServers": {
     "wp-agent-memory": {
-      "command": "...",
-      "args": ["..."]
+      "type": "http",
+      "url": "https://yoursite.com/wp-json/mcp/v1",
+      "headers": {
+        "Authorization": "Basic <base64(username:application-password)>"
+      }
     }
   }
 }
 ```
+
+Replace `yoursite.com` with your WordPress site URL and the `Authorization` value with the base64-encoded credential from the Agent Setup steps above.
 
 ## Development
 

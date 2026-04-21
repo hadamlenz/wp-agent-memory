@@ -209,11 +209,12 @@ class Writer_Service {
     }
 
     /**
-     * Find or create a WordPress user for the given agent slug, returning its ID.
+     * Look up the WP user ID for a registered agent slug.
+     * Does not create users — use agent-memory/register-agent for that.
      *
      * @param string $agent Raw agent identifier from input.
      *
-     * @return int WordPress user ID, or 0 on failure.
+     * @return int WordPress user ID, or 0 if not registered.
      */
     private function resolve_agent_user( string $agent ): int {
         $slug = sanitize_user( $agent, true );
@@ -224,21 +225,7 @@ class Writer_Service {
 
         $user = get_user_by( 'login', $slug );
 
-        if ( $user ) {
-            return $user->ID;
-        }
-
-        $user_id = wp_insert_user(
-            array(
-                'user_login'   => $slug,
-                'user_email'   => $slug . '@agents.internal',
-                'display_name' => $agent,
-                'role'         => 'author',
-                'user_pass'    => wp_generate_password( 32 ),
-            )
-        );
-
-        return is_wp_error( $user_id ) ? 0 : $user_id;
+        return $user ? $user->ID : 0;
     }
 
     /**
