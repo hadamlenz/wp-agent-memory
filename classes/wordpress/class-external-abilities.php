@@ -17,6 +17,9 @@ class External_Abilities {
 	/** @var External_Sources_Service */
 	private External_Sources_Service $service;
 
+	/**
+	 * @param External_Sources_Service $service External data provider used by ability callbacks.
+	 */
 	public function __construct( External_Sources_Service $service ) {
 		$this->service = $service;
 	}
@@ -67,6 +70,9 @@ class External_Abilities {
 		return $this->service->search_github_issues( $input );
 	}
 
+	/**
+	 * Register the search-wp-docs ability contract.
+	 */
 	private function register_wp_docs_ability(): void {
 		$this->register_ability(
 			'agent-memory/search-wp-docs',
@@ -115,6 +121,9 @@ class External_Abilities {
 		);
 	}
 
+	/**
+	 * Register the fetch-wp-doc ability contract.
+	 */
 	private function register_fetch_wp_doc_ability(): void {
 		$this->register_ability(
 			'agent-memory/fetch-wp-doc',
@@ -145,6 +154,9 @@ class External_Abilities {
 		);
 	}
 
+	/**
+	 * Register the search-github-issues ability contract.
+	 */
 	private function register_github_issues_ability(): void {
 		$this->register_ability(
 			'agent-memory/search-github-issues',
@@ -233,6 +245,11 @@ class External_Abilities {
 		call_user_func( $register_fn, $name, $args );
 	}
 
+	/**
+	 * Resolve the runtime ability registration function name.
+	 *
+	 * @return string|null
+	 */
 	private function resolve_register_function(): ?string {
 		foreach ( array( 'wp_register_ability', 'register_ability' ) as $fn ) {
 			if ( function_exists( $fn ) ) {

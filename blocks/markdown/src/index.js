@@ -4,6 +4,12 @@ import { RawHTML } from '@wordpress/element';
 import { useServerSideRender } from '@wordpress/server-side-render';
 import metadata from '../block.json';
 
+/**
+ * Render a live server-side preview when the block is not selected.
+ *
+ * @param {{attributes: Record<string, unknown>}} props Block props.
+ * @return {JSX.Element}
+ */
 function MarkdownPreview( { attributes } ) {
 	const blockProps = useBlockProps();
 	const { content, status } = useServerSideRender( {
@@ -20,6 +26,12 @@ function MarkdownPreview( { attributes } ) {
 }
 
 registerBlockType( metadata, {
+	/**
+	 * Render the editable markdown field in the block editor.
+	 *
+	 * @param {{attributes: Record<string, unknown>, setAttributes: Function, isSelected: boolean}} props Block edit props.
+	 * @return {JSX.Element}
+	 */
 	edit: function EditMarkdownBlock( { attributes, setAttributes, isSelected } ) {
 		const blockProps = useBlockProps();
 
@@ -38,6 +50,12 @@ registerBlockType( metadata, {
 			</div>
 		);
 	},
+	/**
+	 * Save raw markdown so frontend rendering can be controlled by the dynamic block callback.
+	 *
+	 * @param {{attributes: Record<string, unknown>}} props Block save props.
+	 * @return {JSX.Element}
+	 */
 	save: function SaveMarkdownBlock( { attributes } ) {
 		return <RawHTML>{ attributes.content || '' }</RawHTML>;
 	},

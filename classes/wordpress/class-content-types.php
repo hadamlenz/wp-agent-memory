@@ -54,6 +54,9 @@ class Content_Types {
                 'supports'            => array( 'title', 'editor', 'excerpt', 'custom-fields', 'revisions', 'author' ),
                 'has_archive'         => false,
                 'rewrite'             => array( 'slug' => 'memory-entry' ),
+                // map_meta_cap => false + explicit capabilities maps CPT caps to standard page caps.
+                // This means Editors (edit_pages) can create/edit/delete entries, Authors cannot.
+                // Changing map_meta_cap to true would break the permission model for abilities and REST.
                 'map_meta_cap'        => false,
                 'capabilities'        => array(
                     'edit_post'           => 'edit_pages',
@@ -67,6 +70,7 @@ class Content_Types {
                     'read_private_posts'  => 'read_private_pages',
                     'create_posts'        => 'edit_pages',
                 ),
+                // Intentional: memories outlive agent users. Deleting an agent WP user must not wipe entries.
                 'delete_with_user'    => false,
                 'show_in_menu'        => true,
                 'show_in_admin_bar'   => true,
@@ -191,6 +195,9 @@ class Content_Types {
             )
         );
 
+        // usage_count, useful_count, last_used_gmt are managed exclusively by Search_Service and
+        // the mark-useful ability. auth_callback => '__return_false' blocks direct REST meta writes
+        // so agents cannot manipulate ranking signals by writing to these fields themselves.
         register_post_meta(
             'memory_entry',
             'usage_count',

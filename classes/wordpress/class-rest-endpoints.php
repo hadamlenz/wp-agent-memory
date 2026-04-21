@@ -109,7 +109,7 @@ class Rest_Endpoints {
             array(
                 array(
                     'methods'             => 'POST',
-                    'permission_callback' => array( $this, 'can_read' ),
+                    'permission_callback' => array( $this, 'can_write' ),
                     'callback'            => array( $this, 'mark_useful' ),
                     'args'                => array(
                         'agent'   => array( 'type' => 'string', 'required' => false, 'sanitize_callback' => 'sanitize_text_field' ),
@@ -251,24 +251,6 @@ class Rest_Endpoints {
         }
 
         return rest_ensure_response( $result );
-    }
-
-    /**
-     * POST /agent handler.
-     *
-     * @param WP_REST_Request $request
-     *
-     * @return WP_REST_Response|WP_Error
-     */
-    public function register_agent( WP_REST_Request $request ) {
-        $input  = $request->get_json_params() ?? array();
-        $result = $this->agent_service->register_agent( $input );
-
-        if ( isset( $result['error'] ) ) {
-            return new WP_Error( 'agent_memory_register_failed', $result['error'], array( 'status' => 400 ) );
-        }
-
-        return new WP_REST_Response( $result, 201 );
     }
 
     /**

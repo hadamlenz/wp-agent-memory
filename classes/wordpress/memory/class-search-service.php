@@ -197,7 +197,9 @@ class Search_Service {
             return $cached_result;
         }
 
-        // Pull a wider candidate set, then apply custom ranking and trim to limit.
+        // Fetch 4× the requested limit (min 20, max 200) so custom scoring has a large enough
+        // pool to reorder before trimming. WP_Query's built-in 's' ordering is not aware of
+        // symbol_name, rank_bias, or usage signals — those are applied in score_candidate().
         $args = array(
             'post_type'      => 'memory_entry',
             'post_status'    => 'publish',

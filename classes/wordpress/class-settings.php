@@ -13,6 +13,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class Settings {
 
+	/**
+	 * Register the Agent Memory settings page under Settings.
+	 */
 	public function register_menu(): void {
 		add_options_page(
 			__( 'Agent Memory', 'wp-agent-memory' ),
@@ -23,6 +26,9 @@ class Settings {
 		);
 	}
 
+	/**
+	 * Register plugin settings, sections, and admin fields.
+	 */
 	public function register_settings(): void {
 		register_setting(
 			'wpam_settings',
@@ -51,6 +57,9 @@ class Settings {
 		);
 	}
 
+	/**
+	 * Render the masked GitHub token input field.
+	 */
 	public function render_github_token_field(): void {
 		$value = (string) get_option( 'wpam_github_token', '' );
 		?>
@@ -68,6 +77,9 @@ class Settings {
 		<?php
 	}
 
+	/**
+	 * Render the plugin settings page contents.
+	 */
 	public function render_page(): void {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			return;
@@ -86,11 +98,25 @@ class Settings {
 		<?php
 	}
 
+	/**
+	 * Add the memory count column to the users list table.
+	 *
+	 * @param array<string, string> $columns Existing users list columns.
+	 * @return array<string, string>
+	 */
 	public function add_memories_column( array $columns ): array {
 		$columns['memory_count'] = __( 'Memories', 'wp-agent-memory' );
 		return $columns;
 	}
 
+	/**
+	 * Render the custom memory count cell value for a user row.
+	 *
+	 * @param string $output  Existing rendered output.
+	 * @param string $column  Column key currently being rendered.
+	 * @param int    $user_id Current user ID.
+	 * @return string
+	 */
 	public function render_memories_column( string $output, string $column, int $user_id ): string {
 		if ( 'memory_count' !== $column ) {
 			return $output;
