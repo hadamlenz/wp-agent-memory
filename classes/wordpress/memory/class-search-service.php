@@ -30,6 +30,26 @@ class Search_Service {
     private const CACHE_TTL     = 120;
 
     /**
+     * Half-life in days for time-decaying usage signal.
+     */
+    private const USAGE_HALF_LIFE_DAYS = 90;
+
+    /**
+     * Weight multiplier: explicit mark-useful vs passive search appearance.
+     */
+    private const USEFUL_WEIGHT = 3;
+
+    /**
+     * Scale factor for log-compressed usage signal.
+     */
+    private const USAGE_SCALE   = 30;
+
+    /**
+     * Maximum usage bonus — kept below taxonomy match (130) to preserve relevance primacy.
+     */
+    private const USAGE_CAP     = 60;
+
+    /**
      * Bump cache version used in transient keys.
      */
     public static function bump_cache_version(): void {
@@ -142,6 +162,17 @@ class Search_Service {
 
         $score += (float) ( $candidate['rank_bias'] ?? 0 );
 
+        $last_used = (string) ( $candidate['last_used_gmt'] ?? '' );
+        $usage     = (int) ( $candidate['usage_count'] ?? 0 );
+        $useful    = (int) ( $candidate['useful_count'] ?? 0 );
+
+        if ( '' !== $last_used && ( $usage > 0 || $useful > 0 ) ) {
+            $days_ago = max( 0, ( time() - (int) strtotime( $last_used ) ) / DAY_IN_SECONDS );
+            $decay    = exp( -$days_ago / self::USAGE_HALF_LIFE_DAYS );
+            $combined = $usage + ( $useful * self::USEFUL_WEIGHT );
+            $score   += min( log( 1 + $combined ) * $decay * self::USAGE_SCALE, self::USAGE_CAP );
+        }
+
         return $score;
     }
 
@@ -247,7 +278,27 @@ class Search_Service {
         $results = array_slice( $candidates, 0, $limit );
         set_transient( $cache_key, $results, self::CACHE_TTL );
 
+        $used_ids = array_filter( array_map( 'intval', array_column( $results, 'id' ) ) );
+        if ( ! empty( $used_ids ) ) {
+            self::increment_usage( $used_ids );
+        }
+
         return $results;
+    }
+
+    /**
+     * Increment passive usage counters for a set of returned entry IDs.
+     * Fires after the cache is written so it does not affect the current response.
+     *
+     * @param int[] $post_ids Post IDs to mark as used.
+     */
+    private static function increment_usage( array $post_ids ): void {
+        $now = gmdate( 'Y-m-d H:i:s' );
+        foreach ( $post_ids as $post_id ) {
+            $current = (int) get_post_meta( $post_id, 'usage_count', true );
+            update_post_meta( $post_id, 'usage_count', $current + 1 );
+            update_post_meta( $post_id, 'last_used_gmt', $now );
+        }
     }
 
     /**
@@ -338,7 +389,10 @@ class Search_Service {
             'source_path' => (string) get_post_meta( $id, 'source_path', true ),
             'source_ref'  => (string) get_post_meta( $id, 'source_ref', true ),
             'keywords'    => array_values( array_filter( array_map( 'trim', explode( ',', $keywords ) ) ) ),
-            'rank_bias'   => (float) get_post_meta( $id, 'rank_bias', true ),
+            'rank_bias'    => (float) get_post_meta( $id, 'rank_bias', true ),
+            'usage_count'  => (int) get_post_meta( $id, 'usage_count', true ),
+            'useful_count' => (int) get_post_meta( $id, 'useful_count', true ),
+            'last_used_gmt'=> (string) get_post_meta( $id, 'last_used_gmt', true ),
             'permalink'   => get_permalink( $id ),
             'repo'        => $this->term_slugs( $id, 'memory_repo' ),
             'package'     => $this->term_slugs( $id, 'memory_package' ),

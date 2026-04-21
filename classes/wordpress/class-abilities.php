@@ -52,6 +52,7 @@ class Abilities {
         $this->register_create_ability();
         $this->register_update_ability();
         $this->register_delete_ability();
+        $this->register_mark_useful_ability();
     }
 
     /**
@@ -331,6 +332,68 @@ class Abilities {
         $id = isset( $input['id'] ) ? absint( $input['id'] ) : 0;
 
         return $this->writer_service->delete( $id );
+    }
+
+    /**
+     * Register mark-useful ability schema and callback.
+     */
+    private function register_mark_useful_ability(): void {
+        $this->register_ability(
+            'agent-memory/mark-useful',
+            array(
+                'label'       => 'Mark Memory Entry as Useful',
+                'description' => 'Signal that a memory entry was genuinely useful after a task. Increments its useful_count to boost future ranking.',
+                'input_schema' => array(
+                    'type'       => 'object',
+                    'required'   => array( 'id' ),
+                    'properties' => array(
+                        'id'      => array( 'type' => 'integer', 'minimum' => 1, 'description' => 'Post ID of the memory entry.' ),
+                        'agent'   => array( 'type' => 'string', 'description' => 'Stable slug of the calling agent (e.g. claude-sonnet-4-6).' ),
+                        'context' => array( 'type' => 'string', 'description' => 'Short note on why the memory was useful.' ),
+                    ),
+                ),
+                'output_schema' => array(
+                    'type'       => 'object',
+                    'properties' => array(
+                        'marked'       => array( 'type' => 'boolean' ),
+                        'id'           => array( 'type' => 'integer' ),
+                        'useful_count' => array( 'type' => 'integer' ),
+                    ),
+                ),
+            ),
+            array( $this, 'ability_mark_useful' ),
+            false
+        );
+    }
+
+    /**
+     * Execute agent-memory/mark-useful.
+     *
+     * @param array<string, mixed> $input
+     *
+     * @return array<string, mixed>
+     */
+    public function ability_mark_useful( array $input = array() ): array {
+        $id   = isset( $input['id'] ) ? absint( $input['id'] ) : 0;
+        $post = $id > 0 ? get_post( $id ) : null;
+
+        if ( ! $post instanceof \WP_Post || 'memory_entry' !== $post->post_type || 'publish' !== $post->post_status ) {
+            return array( 'error' => 'Memory entry not found.' );
+        }
+
+        $useful = (int) get_post_meta( $id, 'useful_count', true ) + 1;
+        $usage  = (int) get_post_meta( $id, 'usage_count', true ) + 1;
+        $now    = gmdate( 'Y-m-d H:i:s' );
+
+        update_post_meta( $id, 'useful_count', $useful );
+        update_post_meta( $id, 'usage_count', $usage );
+        update_post_meta( $id, 'last_used_gmt', $now );
+
+        return array(
+            'marked'       => true,
+            'id'           => $id,
+            'useful_count' => $useful,
+        );
     }
 
     /**

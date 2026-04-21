@@ -3,6 +3,32 @@ name: wp-agent-memory
 description: Working with the wp-agent-memory REST API — endpoints, field schema, content format, and agent authorship
 ---
 
+## Agent Workflow
+
+### At the start of every task
+Search before responding. Identify 1–3 topic keywords from the user's request and call `agent-memory/search` with `params.query`.
+
+### At the end of a task
+If a retrieved memory genuinely shaped your approach or provided the correct solution, call `agent-memory/mark-useful` with `params.id` (from the search result), `params.agent` (your model slug), and an optional `params.context` note.
+
+**Do not mark useful if:** the memory was retrieved but ignored, was stale/incorrect, or didn't influence the response.
+
+**Why it matters:** The `useful_count` field on each search result reflects how often agents have marked that entry as genuinely useful. Entries with higher useful counts surface higher in future searches (log-scaled, time-decayed). Calling `mark-useful` is how the system learns which memories are actually reliable.
+
+### What to save
+
+Save memories for:
+- Non-obvious solutions, workarounds, or constraints that aren't visible in the code
+- Decisions and the reasoning behind them (architecture, naming, approach)
+- Patterns that recur across tasks — things you had to figure out more than once
+
+Do not save:
+- Code patterns already visible in the codebase (read the file instead)
+- Things already in git history or commit messages
+- Transient task state or work-in-progress notes
+
+---
+
 ## REST API
 
 Base path: `/wp-json/agent-memory/v1`
@@ -21,6 +47,22 @@ Base path: `/wp-json/agent-memory/v1`
 | `package` | array of slugs | Filter by package |
 | `symbol_type` | array of slugs | Filter by symbol type |
 | `limit` | integer | Max results (1–50, default 10) |
+
+**Search result shape:**
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | integer | Entry ID — pass to `mark-useful`, `get-entry`, `update-entry` |
+| `title` | string | Entry title |
+| `summary` | string | One-paragraph summary |
+| `snippet` | string | Query-centered excerpt from content |
+| `score` | float | Relevance score (higher = better match) |
+| `useful_count` | integer | Times agents marked this entry as useful |
+| `repo` | array | Associated repository slugs |
+| `topic` | array | Topic taxonomy slugs |
+| `symbol_name` | string | Symbol identifier if set |
+| `author` | string | Agent or user display name |
+| `permalink` | string | WordPress admin URL |
 
 ### List Recent
 
@@ -62,6 +104,17 @@ Base path: `/wp-json/agent-memory/v1`
 ### Delete Entry
 
 `DELETE /entry/{id}` — trashes the entry. Returns `{"deleted": true, "id": <id>}`.
+
+### Mark Entry as Useful
+
+`POST /entry/{id}/useful` — signal that a memory was genuinely useful after a task. Increments `useful_count` to boost future search ranking.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `agent` | string | — | Agent slug (e.g. `claude-sonnet-4-6`) |
+| `context` | string | — | Short note on why it was useful |
+
+Returns `{"marked": true, "id": <id>, "useful_count": <n>}`.
 
 ### Error Handling
 
@@ -119,10 +172,37 @@ Tool names can vary by host prefix and adapter naming conventions. Treat the RES
 | `agent-memory/create-entry` | `POST /entry` |
 | `agent-memory/update-entry` | `PATCH /entry/{id}` |
 | `agent-memory/delete-entry` | `DELETE /entry/{id}` |
+| `agent-memory/mark-useful` | `POST /entry/{id}/useful` |
 | `agent-memory/search-wp-docs` | MCP only |
 | `agent-memory/search-github-issues` | MCP only |
 
-Run `discover-abilities` to confirm the current list.
+Run `discover-abilities` to confirm the current list. For full parameter schemas and response shapes for all abilities, see [docs/abilities.md](docs/abilities.md).
+
+**Search:**
+```json
+{ "ability_name": "agent-memory/search", "parameters": { "query": "hover states blocks", "limit": 5 } }
+```
+
+**Create:**
+```json
+{
+  "ability_name": "agent-memory/create-entry",
+  "parameters": {
+    "title": "Hover Style System — CSS Custom Properties",
+    "summary": "WordPress blocks don't support hover states natively. Store hover values as separate attributes, write as CSS custom properties at render time, map to :hover rules in CSS.",
+    "topic": ["wordpress", "blocks"],
+    "agent": "claude-sonnet-4-6"
+  }
+}
+```
+
+**Mark useful:**
+```json
+{
+  "ability_name": "agent-memory/mark-useful",
+  "parameters": { "id": 42, "agent": "claude-sonnet-4-6", "context": "Provided the exact pattern needed for hover states." }
+}
+```
 
 ---
 
@@ -132,12 +212,13 @@ Two read-only abilities query live external sources. Use these before guessing a
 
 ### `agent-memory/search-wp-docs`
 
-Searches [developer.wordpress.org](https://developer.wordpress.org/) Code Reference.
+Searches WordPress documentation. Use `source` to target different sites.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `query` | string | required | Search term |
-| `type` | string | `all` | Filter by type: `all`, `functions`, `hooks`, `classes`, `methods` |
+| `source` | string | `developer` | `developer` — developer.wordpress.org Code Reference; `news` — wordpress.org/news announcements; `user-docs` — wordpress.org/documentation end-user guides |
+| `type` | string | `all` | Filter by type (developer only): `all`, `functions`, `hooks`, `classes`, `methods` |
 | `limit` | integer | `5` | Max results (1–10) |
 
 Results: `{ count, results: [{ title, url, type, excerpt }] }`
@@ -146,6 +227,13 @@ Results: `{ count, results: [{ title, url, type, excerpt }] }`
 {
   "ability_name": "agent-memory/search-wp-docs",
   "parameters": { "query": "register_block_type", "type": "functions", "limit": 3 }
+}
+```
+
+```json
+{
+  "ability_name": "agent-memory/search-wp-docs",
+  "parameters": { "query": "WordPress 7.0", "source": "news", "limit": 5 }
 }
 ```
 

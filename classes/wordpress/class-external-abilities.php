@@ -60,19 +60,24 @@ class External_Abilities {
 		$this->register_ability(
 			'agent-memory/search-wp-docs',
 			array(
-				'label'         => 'Search WordPress Developer Docs',
-				'description'   => 'Search developer.wordpress.org Code Reference for functions, hooks, classes, and methods.',
+				'label'         => 'Search WordPress Docs',
+				'description'   => 'Search WordPress documentation. Use source=developer (default) for developer.wordpress.org Code Reference; source=news for wordpress.org/news announcements; source=user-docs for wordpress.org/documentation end-user guides.',
 				'input_schema'  => array(
 					'type'       => 'object',
 					'required'   => array( 'query' ),
 					'properties' => array(
-						'query' => array( 'type' => 'string' ),
-						'type'  => array(
+						'query'  => array( 'type' => 'string' ),
+						'source' => array(
+							'type'    => 'string',
+							'enum'    => array( 'developer', 'news', 'user-docs' ),
+							'default' => 'developer',
+						),
+						'type'   => array(
 							'type'    => 'string',
 							'enum'    => array( 'all', 'functions', 'hooks', 'classes', 'methods' ),
 							'default' => 'all',
 						),
-						'limit' => array( 'type' => 'integer', 'minimum' => 1, 'maximum' => 10, 'default' => 5 ),
+						'limit'  => array( 'type' => 'integer', 'minimum' => 1, 'maximum' => 10, 'default' => 5 ),
 					),
 				),
 				'output_schema' => array(

@@ -83,9 +83,10 @@ class Response_Shaper {
             'snippet'     => self::build_snippet( $snippet_source, $query ),
             'source_url'  => (string) ( $candidate['source_url'] ?? '' ),
             'source_path' => (string) ( $candidate['source_path'] ?? '' ),
-            'author'      => get_the_author_meta( 'display_name', (int) ( $candidate['post_author'] ?? 0 ) ),
-            'score'       => round( $score, 3 ),
-            'permalink'   => (string) ( $candidate['permalink'] ?? '' ),
+            'author'       => get_the_author_meta( 'display_name', (int) ( $candidate['post_author'] ?? 0 ) ),
+            'score'        => round( $score, 3 ),
+            'useful_count' => (int) ( $candidate['useful_count'] ?? 0 ),
+            'permalink'    => (string) ( $candidate['permalink'] ?? '' ),
         );
     }
 
@@ -110,11 +111,12 @@ class Response_Shaper {
             'source_url'  => (string) ( $candidate['source_url'] ?? '' ),
             'source_path' => (string) ( $candidate['source_path'] ?? '' ),
             'source_ref'  => (string) ( $candidate['source_ref'] ?? '' ),
-            'rank_bias'   => (float) ( $candidate['rank_bias'] ?? 0 ),
-            'content'     => self::extract_content( (string) ( $candidate['content'] ?? '' ) ),
-            'author'      => get_the_author_meta( 'display_name', (int) ( $candidate['post_author'] ?? 0 ) ),
-            'permalink'   => (string) ( $candidate['permalink'] ?? '' ),
-            'modified_gmt'=> (string) ( $candidate['modified_gmt'] ?? '' ),
+            'rank_bias'    => (float) ( $candidate['rank_bias'] ?? 0 ),
+            'useful_count' => (int) ( $candidate['useful_count'] ?? 0 ),
+            'content'      => self::extract_content( (string) ( $candidate['content'] ?? '' ) ),
+            'author'       => get_the_author_meta( 'display_name', (int) ( $candidate['post_author'] ?? 0 ) ),
+            'permalink'    => (string) ( $candidate['permalink'] ?? '' ),
+            'modified_gmt' => (string) ( $candidate['modified_gmt'] ?? '' ),
         );
     }
 

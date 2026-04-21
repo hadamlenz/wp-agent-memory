@@ -15,6 +15,8 @@ class External_Sources_Service {
 	private const WP_DOCS_CACHE_TTL  = 300;
 	private const GITHUB_CACHE_TTL   = 120;
 	private const WP_DOCS_BASE       = 'https://developer.wordpress.org/wp-json/wp/v2/search';
+	private const WP_NEWS_BASE       = 'https://wordpress.org/news/wp-json/wp/v2/posts';
+	private const WP_USER_DOCS_BASE  = 'https://wordpress.org/documentation/wp-json/wp/v2/search';
 	private const GITHUB_SEARCH_BASE = 'https://api.github.com/search/issues';
 
 	private ?string $github_token;
@@ -31,44 +33,60 @@ class External_Sources_Service {
 	 * @return array<string, mixed>
 	 */
 	public function search_wp_docs( array $params ): array {
-		$query = isset( $params['query'] ) ? sanitize_text_field( (string) $params['query'] ) : '';
-		$type  = isset( $params['type'] ) ? (string) $params['type'] : 'all';
-		$limit = isset( $params['limit'] ) ? max( 1, min( 10, (int) $params['limit'] ) ) : 5;
+		$query  = isset( $params['query'] ) ? sanitize_text_field( (string) $params['query'] ) : '';
+		$type   = isset( $params['type'] ) ? (string) $params['type'] : 'all';
+		$limit  = isset( $params['limit'] ) ? max( 1, min( 10, (int) $params['limit'] ) ) : 5;
+		$source = isset( $params['source'] ) ? (string) $params['source'] : 'developer';
 
 		if ( '' === $query ) {
 			return array( 'error' => 'query is required.' );
 		}
 
-		$cache_key = 'wpam_wp_docs_' . md5( $query . '|' . $type . '|' . $limit );
+		$cache_key = 'wpam_wp_docs_' . md5( $query . '|' . $type . '|' . $limit . '|' . $source );
 		$cached    = get_transient( $cache_key );
 		if ( false !== $cached ) {
 			return $cached;
 		}
 
-		$subtype_map = array(
-			'functions' => 'function',
-			'hooks'     => 'hook',
-			'classes'   => 'class',
-			'methods'   => 'method',
-		);
-		$subtype = isset( $subtype_map[ $type ] ) ? $subtype_map[ $type ] : 'any';
+		if ( 'news' === $source ) {
+			$url    = add_query_arg( array( 'search' => $query, 'per_page' => $limit ), self::WP_NEWS_BASE );
+			$result = $this->fetch( $url );
+			if ( is_string( $result ) ) {
+				return array( 'error' => $result );
+			}
+			$results = array_map( array( $this, 'normalize_wp_news_result' ), $result );
+		} elseif ( 'user-docs' === $source ) {
+			$url    = add_query_arg( array( 'search' => $query, 'per_page' => $limit ), self::WP_USER_DOCS_BASE );
+			$result = $this->fetch( $url );
+			if ( is_string( $result ) ) {
+				return array( 'error' => $result );
+			}
+			$results = array_map( array( $this, 'normalize_wp_docs_result' ), $result );
+		} else {
+			$subtype_map = array(
+				'functions' => 'wp-parser-function',
+				'hooks'     => 'wp-parser-hook',
+				'classes'   => 'wp-parser-class',
+				'methods'   => 'wp-parser-method',
+			);
+			$subtype = isset( $subtype_map[ $type ] ) ? $subtype_map[ $type ] : 'any';
 
-		$url    = add_query_arg(
-			array(
-				'search'   => $query,
-				'per_page' => $limit,
-				'subtype'  => $subtype,
-			),
-			self::WP_DOCS_BASE
-		);
-		$result = $this->fetch( $url );
-
-		if ( is_string( $result ) ) {
-			return array( 'error' => $result );
+			$url    = add_query_arg(
+				array(
+					'search'   => $query,
+					'per_page' => $limit,
+					'subtype'  => $subtype,
+				),
+				self::WP_DOCS_BASE
+			);
+			$result = $this->fetch( $url );
+			if ( is_string( $result ) ) {
+				return array( 'error' => $result );
+			}
+			$results = array_map( array( $this, 'normalize_wp_docs_result' ), $result );
 		}
 
-		$results = array_map( array( $this, 'normalize_wp_docs_result' ), $result );
-		$output  = array(
+		$output = array(
 			'count'   => count( $results ),
 			'results' => $results,
 		);
@@ -216,6 +234,18 @@ class External_Sources_Service {
 		}
 
 		return $decoded;
+	}
+
+	/**
+	 * @param array<string, mixed> $item
+	 * @return array<string, string>
+	 */
+	private function normalize_wp_news_result( array $item ): array {
+		$title   = wp_strip_all_tags( isset( $item['title']['rendered'] ) ? (string) $item['title']['rendered'] : '' );
+		$url     = isset( $item['link'] ) ? (string) $item['link'] : '';
+		$type    = 'news';
+		$excerpt = wp_strip_all_tags( isset( $item['excerpt']['rendered'] ) ? (string) $item['excerpt']['rendered'] : '' );
+		return compact( 'title', 'url', 'type', 'excerpt' );
 	}
 
 	/**

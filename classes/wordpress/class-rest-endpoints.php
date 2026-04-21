@@ -102,6 +102,22 @@ class Rest_Endpoints {
                 ),
             )
         );
+
+        register_rest_route(
+            'agent-memory/v1',
+            '/entry/(?P<id>\d+)/useful',
+            array(
+                array(
+                    'methods'             => 'POST',
+                    'permission_callback' => array( $this, 'can_read' ),
+                    'callback'            => array( $this, 'mark_useful' ),
+                    'args'                => array(
+                        'agent'   => array( 'type' => 'string', 'required' => false, 'sanitize_callback' => 'sanitize_text_field' ),
+                        'context' => array( 'type' => 'string', 'required' => false, 'sanitize_callback' => 'sanitize_text_field' ),
+                    ),
+                ),
+            )
+        );
     }
 
     /**
@@ -235,6 +251,38 @@ class Rest_Endpoints {
         }
 
         return rest_ensure_response( $result );
+    }
+
+    /**
+     * POST /entry/<id>/useful handler.
+     *
+     * @param WP_REST_Request $request
+     *
+     * @return WP_REST_Response|WP_Error
+     */
+    public function mark_useful( WP_REST_Request $request ) {
+        $id   = (int) $request->get_param( 'id' );
+        $post = $id > 0 ? get_post( $id ) : null;
+
+        if ( ! $post instanceof \WP_Post || 'memory_entry' !== $post->post_type || 'publish' !== $post->post_status ) {
+            return new WP_Error( 'agent_memory_not_found', __( 'Memory entry not found.', 'wp-agent-memory' ), array( 'status' => 404 ) );
+        }
+
+        $useful = (int) get_post_meta( $id, 'useful_count', true ) + 1;
+        $usage  = (int) get_post_meta( $id, 'usage_count', true ) + 1;
+        $now    = gmdate( 'Y-m-d H:i:s' );
+
+        update_post_meta( $id, 'useful_count', $useful );
+        update_post_meta( $id, 'usage_count', $usage );
+        update_post_meta( $id, 'last_used_gmt', $now );
+
+        return rest_ensure_response(
+            array(
+                'marked'       => true,
+                'id'           => $id,
+                'useful_count' => $useful,
+            )
+        );
     }
 
     /**

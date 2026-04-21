@@ -190,6 +190,45 @@ class Content_Types {
                 },
             )
         );
+
+        register_post_meta(
+            'memory_entry',
+            'usage_count',
+            array(
+                'single'            => true,
+                'show_in_rest'      => false,
+                'type'              => 'integer',
+                'default'           => 0,
+                'auth_callback'     => '__return_false',
+                'sanitize_callback' => 'absint',
+            )
+        );
+
+        register_post_meta(
+            'memory_entry',
+            'useful_count',
+            array(
+                'single'            => true,
+                'show_in_rest'      => false,
+                'type'              => 'integer',
+                'default'           => 0,
+                'auth_callback'     => '__return_false',
+                'sanitize_callback' => 'absint',
+            )
+        );
+
+        register_post_meta(
+            'memory_entry',
+            'last_used_gmt',
+            array(
+                'single'            => true,
+                'show_in_rest'      => false,
+                'type'              => 'string',
+                'default'           => '',
+                'auth_callback'     => '__return_false',
+                'sanitize_callback' => 'sanitize_text_field',
+            )
+        );
     }
 
     /**
@@ -213,7 +252,7 @@ class Content_Types {
         add_action( 'save_post_memory_entry', array( $this, 'invalidate_search_cache' ) );
         add_action( 'deleted_post', array( $this, 'invalidate_search_cache_on_delete' ), 10, 2 );
         add_action( 'set_object_terms', array( $this, 'invalidate_search_cache' ) );
-        add_action( 'updated_post_meta', array( $this, 'invalidate_search_cache' ) );
+        add_action( 'updated_post_meta', array( $this, 'maybe_invalidate_on_meta_update' ), 10, 3 );
     }
 
     /**
@@ -223,6 +262,22 @@ class Content_Types {
      */
     public function invalidate_search_cache( ...$args ): void {
         Search_Service::bump_cache_version();
+    }
+
+    /**
+     * Only bust search cache for content-relevant meta changes.
+     * Usage tracking keys must not invalidate caches on every search.
+     *
+     * @param int    $meta_id   Updated meta row ID.
+     * @param int    $object_id Post ID.
+     * @param string $meta_key  Meta key that changed.
+     */
+    public function maybe_invalidate_on_meta_update( int $meta_id, int $object_id, string $meta_key ): void {
+        static $skip_keys = array( 'usage_count', 'useful_count', 'last_used_gmt' );
+        if ( in_array( $meta_key, $skip_keys, true ) ) {
+            return;
+        }
+        $this->invalidate_search_cache();
     }
 
     /**
