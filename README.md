@@ -95,53 +95,11 @@ To increase the GitHub API rate limit for `search-github-issues` from ~10 reques
 
 Generate a token at [github.com/settings/tokens](https://github.com/settings/tokens). If you prefer to set it as a server environment variable (`GITHUB_TOKEN`), that will take precedence over the settings page value.
 
-## Development
+## Reference
 
-The plugin includes a Gutenberg block for storing Markdown content. Build it with `@wordpress/scripts`:
-
-```bash
-npm install
-npm run build   # production build → blocks/markdown/build/
-npm run start   # watch mode for development
-```
-
-| Script | Description |
-|---|---|
-| `npm run build` | Compile the Markdown block for production |
-| `npm run start` | Watch and rebuild on changes (development) |
-
-## REST API
-
-Base path: `/wp-json/agent-memory/v1`
-
-Auth: HTTP Basic. Read endpoints require `read` capability; write endpoints require `edit_pages` (editor role or above).
-
-See [docs/abilities.md](docs/abilities.md) for the full ability and endpoint reference.
-
-## WordPress Docs Lookup
-
-The `agent-memory/search-wp-docs` ability searches WordPress developer documentation and returns matching page URLs. Use `agent-memory/fetch-wp-doc` to retrieve the full content of any returned URL via the WordPress.org REST API.
-
-Supported hosts: `developer.wordpress.org` (plugin/theme handbooks, Code Reference), `wordpress.org/documentation`, `wordpress.org/news`.
-
-## GitHub Issues Search
-
-The `agent-memory/search-github-issues` ability queries issues and PRs on `WordPress/gutenberg` and `WordPress/wordpress-develop`.
-
-Without a token: ~10 requests/minute per IP. With a token: 5,000/hour. Configure the token in **Settings → Agent Memory** (see [Configuration](#configuration) above).
-
-## For AI Agents
-
-See [SKILL.md](SKILL.md) for the agent workflow guide — when to search, when to save, and how to use the MCP tools.
-
-## Contributing
-
-All contributions require a pull request and review before merging.
-
-- PHP code follows WordPress coding standards
-- Run `composer install` to get PHPUnit, then `vendor/bin/phpunit` to run the test suite
-- JS changes require `npm run build` before committing (or use `npm run start` during development)
-- The release zip is built automatically by GitHub Actions on a version tag push — do not commit `vendor/` or `blocks/markdown/build/`
+- [docs/abilities.md](docs/abilities.md) — full ability and REST endpoint reference, including `search-wp-docs`, `fetch-wp-doc`, and `search-github-issues`
+- [SKILL.md](SKILL.md) — agent workflow guide: when to search, when to save, how to use the MCP tools
+- [CONTRIBUTING.md](CONTRIBUTING.md) — development setup and contribution guidelines
 
 ## Contributors
 

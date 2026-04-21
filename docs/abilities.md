@@ -10,6 +10,11 @@ All abilities are exposed via the MCP adapter (`mcp__wp-agent-memory__mcp-adapte
 
 Search memory entries using relevance + usage-based ranking.
 
+**Say things like:**
+> "Search memory for how we handle hover states in blocks."
+> "Before you start, check if we've solved this authentication problem before."
+> "Do we have any memories about the checkout flow?"
+
 **REST:** `GET /search`
 
 ### Parameters
@@ -64,6 +69,11 @@ Search memory entries using relevance + usage-based ranking.
 
 Retrieve a single memory entry by ID with full content.
 
+**Say things like:**
+> "Pull up memory entry 42."
+> "Show me the full content of that memory."
+> "Get me everything on entry 87."
+
 **REST:** `GET /entry/{id}`
 
 ### Parameters
@@ -112,6 +122,11 @@ Retrieve a single memory entry by ID with full content.
 
 List the most recently created or updated entries, date-ordered (no relevance scoring).
 
+**Say things like:**
+> "What memories were saved recently?"
+> "Show me the last 5 things we remembered."
+> "What's been added to memory this week?"
+
 **REST:** `GET /recent`
 
 ### Parameters
@@ -140,6 +155,11 @@ Same compact shape as search results but without a `score` field, ordered by pos
 ## agent-memory/create-entry
 
 Save a new memory entry.
+
+**Say things like:**
+> "Remember that we use CSS custom properties for block hover states — store the approach."
+> "Save this solution so future agents don't have to re-solve it."
+> "Add a memory: the checkout redirect bug was caused by a missing nonce on the AJAX handler."
 
 **REST:** `POST /entry`
 
@@ -192,6 +212,11 @@ Returns the created entry in full `get-entry` shape with HTTP 201.
 
 Update fields on an existing memory entry. Only supplied fields are changed.
 
+**Say things like:**
+> "Update memory 42 — add 'render-callback' to the keywords."
+> "We found a better approach; update that memory with the new solution."
+> "The source path changed — update entry 87 to reflect the new file location."
+
 **REST:** `PATCH /entry/{id}`
 
 ### Parameters
@@ -224,6 +249,11 @@ Returns the updated entry in full `get-entry` shape.
 
 Trash a memory entry.
 
+**Say things like:**
+> "Delete memory 42 — that approach is outdated."
+> "Remove that entry, we no longer use that pattern."
+> "Trash entry 87."
+
 **REST:** `DELETE /entry/{id}`
 
 ### Parameters
@@ -251,7 +281,12 @@ Trash a memory entry.
 
 ## agent-memory/mark-useful
 
-Signal that a memory entry was genuinely useful after completing a task. Increments `useful_count` to boost future search ranking for that entry.
+Signal that a memory entry was genuinely useful after completing a task.
+
+**Say things like:**
+> "That memory about hover states was exactly right — mark it useful."
+> "Entry 42 solved the problem. Give it a thumbs up."
+> "Mark memory 87 as useful, it had the answer." Increments `useful_count` to boost future search ranking for that entry.
 
 **REST:** `POST /entry/{id}/useful`
 
@@ -289,6 +324,11 @@ Call this **after** a task is complete if the memory shaped your approach or pro
 ## agent-memory/search-wp-docs
 
 Search WordPress documentation. Use this before guessing at API behavior or native functions.
+
+**Say things like:**
+> "Look up how `register_block_type` works in the WordPress docs."
+> "Search the WordPress docs for the correct hook to filter post meta."
+> "Before you guess, check the WordPress docs for how application passwords work."
 
 **MCP only** (no REST equivalent).
 
@@ -332,6 +372,11 @@ Search WordPress documentation. Use this before guessing at API behavior or nati
 ## agent-memory/fetch-wp-doc
 
 Fetch the full plain-text content of a WordPress.org documentation page using the WordPress REST API. Use a URL returned by `search-wp-docs` to retrieve the actual page body.
+
+**Say things like:**
+> "Fetch the full content of that WordPress docs page."
+> "Get me the complete text from that developer.wordpress.org URL."
+> "Read the full plugin handbook page on block registration."
 
 **MCP only** (no REST equivalent).
 
@@ -389,6 +434,11 @@ Use `search-wp-docs` first to find the relevant URL, then `fetch-wp-doc` to get 
 ## agent-memory/search-github-issues
 
 Search issues and pull requests on `WordPress/gutenberg` and/or `WordPress/wordpress-develop`. Useful for checking known bugs before filing duplicates or for finding prior art on a problem.
+
+**Say things like:**
+> "Check if there's a known Gutenberg issue for block editor performance on large posts."
+> "Search GitHub for any open issues about `useSelect` memory leaks."
+> "Before we write a bug report, see if this has already been filed on wordpress-develop."
 
 **MCP only** (no REST equivalent).
 
