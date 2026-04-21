@@ -69,6 +69,8 @@ class Core {
         add_action( 'wp_abilities_api_init', array( $this->external_abilities, 'register' ) );
         add_action( 'admin_menu', array( $this->settings, 'register_menu' ) );
         add_action( 'admin_init', array( $this->settings, 'register_settings' ) );
+        add_filter( 'manage_users_columns', array( $this->settings, 'add_memories_column' ) );
+        add_filter( 'manage_users_custom_column', array( $this->settings, 'render_memories_column' ), 10, 3 );
     }
 
     /**

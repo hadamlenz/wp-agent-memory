@@ -86,6 +86,18 @@ class Settings {
 		<?php
 	}
 
+	public function add_memories_column( array $columns ): array {
+		$columns['memory_count'] = __( 'Memories', 'wp-agent-memory' );
+		return $columns;
+	}
+
+	public function render_memories_column( string $output, string $column, int $user_id ): string {
+		if ( 'memory_count' !== $column ) {
+			return $output;
+		}
+		return (string) count_user_posts( $user_id, 'memory_entry', true );
+	}
+
 	/**
 	 * Return the GitHub token, preferring the server env var for backwards compat.
 	 */

@@ -60,14 +60,19 @@ Assigning the Author role is the recommended setup for agents that should only *
 The plugin exposes its abilities through the [WP MCP Adapter](https://github.com/WordPress/mcp-adapter) plugin — a community plugin under active development that is being considered for inclusion in WordPress core.
 
 1. Install and activate the mcp-adapter plugin alongside this one
-2. Add the server to your `.mcp.json` (project-level) or `~/.claude.json` (user-level):
+2. Verify the MCP endpoint is live — open a browser or run:
+   ```
+   curl https://yoursite.com/wp-json/mcp/mcp-adapter-default-server
+   ```
+   You should get a JSON response with `protocolVersion` and `serverInfo`. A 404 means the mcp-adapter plugin is not active.
+3. Add the server to your `.mcp.json` (project-level) or `~/.claude.json` (user-level):
 
 ```json
 {
   "mcpServers": {
     "wp-agent-memory": {
       "type": "http",
-      "url": "https://yoursite.com/wp-json/mcp/v1",
+      "url": "https://yoursite.com/wp-json/mcp/mcp-adapter-default-server",
       "headers": {
         "Authorization": "Basic <base64(username:application-password)>"
       }
