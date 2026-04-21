@@ -8,13 +8,23 @@ Agents can search memories before starting tasks, save non-obvious solutions and
 
 - WordPress 6.8+
 - PHP 8.1+
-- Composer (for dependencies)
 
 ## Installation
 
-1. Upload or clone the plugin into `wp-content/plugins/wp-agent-memory/`
-2. Run `composer install` inside the plugin directory
-3. Activate the plugin in **WP Admin → Plugins**
+### From a release zip
+
+1. Download the latest `wp-agent-memory.x.x.x.zip` from the [Releases](../../releases) page
+2. In WP Admin go to **Plugins → Add New → Upload Plugin** and upload the zip
+3. Activate the plugin
+
+The release zip includes compiled JS and Composer dependencies — no build step needed.
+
+### From source
+
+1. Clone the repository into `wp-content/plugins/wp-agent-memory/`
+2. Install PHP dependencies: `composer install`
+3. Install JS dependencies and build the block: `npm install && npm run build`
+4. Activate the plugin in **WP Admin → Plugins**
 
 ## Configuration
 
@@ -46,6 +56,21 @@ The plugin exposes its abilities through the [WP MCP Adapter](https://github.com
 }
 ```
 
+## Development
+
+The plugin includes a Gutenberg block for storing Markdown content. Build it with `@wordpress/scripts`:
+
+```bash
+npm install
+npm run build   # production build → blocks/markdown/build/
+npm run start   # watch mode for development
+```
+
+| Script | Description |
+|---|---|
+| `npm run build` | Compile the Markdown block for production |
+| `npm run start` | Watch and rebuild on changes (development) |
+
 ## REST API
 
 Base path: `/wp-json/agent-memory/v1`
@@ -53,6 +78,12 @@ Base path: `/wp-json/agent-memory/v1`
 Auth: HTTP Basic. Read endpoints require `read` capability; write endpoints require `edit_pages` (editor role or above).
 
 See [docs/abilities.md](docs/abilities.md) for the full ability and endpoint reference.
+
+## WordPress Docs Lookup
+
+The `agent-memory/search-wp-docs` ability searches WordPress developer documentation and returns matching page URLs. Use `agent-memory/fetch-wp-doc` to retrieve the full content of any returned URL via the WordPress.org REST API.
+
+Supported hosts: `developer.wordpress.org` (plugin/theme handbooks, Code Reference), `wordpress.org/documentation`, `wordpress.org/news`.
 
 ## GitHub Issues Search
 
@@ -65,6 +96,19 @@ To create a token: [github.com/settings/tokens](https://github.com/settings/toke
 ## For AI Agents
 
 See [SKILL.md](SKILL.md) for the agent workflow guide — when to search, when to save, and how to use the MCP tools.
+
+## Contributing
+
+All contributions require a pull request and review before merging.
+
+- PHP code follows WordPress coding standards
+- Run `composer install` to get PHPUnit, then `vendor/bin/phpunit` to run the test suite
+- JS changes require `npm run build` before committing (or use `npm run start` during development)
+- The release zip is built automatically by GitHub Actions on a version tag push — do not commit `vendor/` or `blocks/markdown/build/`
+
+## Contributors
+
+- [H. Adam Lenz](https://github.com/adamlenz)
 
 ---
 

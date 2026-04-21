@@ -174,6 +174,7 @@ Tool names can vary by host prefix and adapter naming conventions. Treat the RES
 | `agent-memory/delete-entry` | `DELETE /entry/{id}` |
 | `agent-memory/mark-useful` | `POST /entry/{id}/useful` |
 | `agent-memory/search-wp-docs` | MCP only |
+| `agent-memory/fetch-wp-doc` | MCP only |
 | `agent-memory/search-github-issues` | MCP only |
 
 Run `discover-abilities` to confirm the current list. For full parameter schemas and response shapes for all abilities, see [docs/abilities.md](docs/abilities.md).

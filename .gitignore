@@ -1,2 +1,6 @@
 node_modules/
+vendor/
+blocks/markdown/build/
 .phpunit.cache/
+package-lock.json
+.DS_Store

@@ -26,6 +26,7 @@ class External_Abilities {
 	 */
 	public function register(): void {
 		$this->register_wp_docs_ability();
+		$this->register_fetch_wp_doc_ability();
 		$this->register_github_issues_ability();
 	}
 
@@ -44,6 +45,16 @@ class External_Abilities {
 	 */
 	public function ability_search_wp_docs( array $input = array() ): array {
 		return $this->service->search_wp_docs( $input );
+	}
+
+	/**
+	 * Execute agent-memory/fetch-wp-doc.
+	 *
+	 * @param array<string, mixed> $input
+	 * @return array<string, mixed>
+	 */
+	public function ability_fetch_wp_doc( array $input = array() ): array {
+		return $this->service->fetch_wp_doc( $input );
 	}
 
 	/**
@@ -101,6 +112,36 @@ class External_Abilities {
 				),
 			),
 			array( $this, 'ability_search_wp_docs' )
+		);
+	}
+
+	private function register_fetch_wp_doc_ability(): void {
+		$this->register_ability(
+			'agent-memory/fetch-wp-doc',
+			array(
+				'label'         => 'Fetch WordPress Doc Page',
+				'description'   => 'Fetch the full content of a WordPress.org documentation page by URL. Supports developer.wordpress.org (plugin/theme handbooks and Code Reference), wordpress.org/documentation, and wordpress.org/news. Use a URL returned by search-wp-docs.',
+				'input_schema'  => array(
+					'type'       => 'object',
+					'required'   => array( 'url' ),
+					'properties' => array(
+						'url' => array(
+							'type'        => 'string',
+							'description' => 'Full URL of the WordPress.org documentation page to fetch.',
+						),
+					),
+				),
+				'output_schema' => array(
+					'type'       => 'object',
+					'properties' => array(
+						'title'   => array( 'type' => 'string' ),
+						'url'     => array( 'type' => 'string' ),
+						'content' => array( 'type' => 'string', 'description' => 'Full page content as plain text.' ),
+						'error'   => array( 'type' => 'string' ),
+					),
+				),
+			),
+			array( $this, 'ability_fetch_wp_doc' )
 		);
 	}
 

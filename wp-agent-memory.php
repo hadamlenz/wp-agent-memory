@@ -1,9 +1,14 @@
 <?php
 /**
  * Plugin Name: WP Agent Memory
- * Description: WordPress-native memory catalog and retrieval tools for developer workflows.
+ * Plugin URI: https://github.com/adamlenz/wp-agent-memory
+ * Description: Stores structured memory entries for AI agents and exposes them via a REST API and MCP abilities for search, retrieval, and usage-based ranking.
  * Version: 0.1.0
- * Author: Local
+ * Author: H. Adam Lenz
+ * Author URI: https://github.com/adamlenz
+ * License: GPL-2.0-or-later
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
+ * Text Domain: wp-agent-memory
  * Requires at least: 6.8
  * Requires PHP: 8.1
  */

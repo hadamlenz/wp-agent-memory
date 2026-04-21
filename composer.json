@@ -1,5 +1,5 @@
 {
-  "name": "local/wp-agent-memory",
+  "name": "hadamlenz/wp-agent-memory",
   "description": "WordPress-native memory retrieval plugin for AI clients.",
   "type": "wordpress-plugin",
   "license": "GPL-2.0-or-later",

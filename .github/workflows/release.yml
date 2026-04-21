@@ -1,0 +1,53 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          tools: composer
+
+      - name: Build JS
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install Composer dependencies
+        run: composer install --no-dev --optimize-autoloader --prefer-dist
+
+      - name: Create release zip
+        run: |
+          PLUGIN_SLUG="wp-agent-memory"
+          VERSION="${GITHUB_REF_NAME#v}"
+          DEST="/tmp/${PLUGIN_SLUG}"
+
+          rsync -rc --exclude-from=.distignore . "${DEST}/"
+
+          cd /tmp
+          zip -r "${PLUGIN_SLUG}.${VERSION}.zip" "${PLUGIN_SLUG}/"
+
+          echo "ZIP_PATH=/tmp/${PLUGIN_SLUG}.${VERSION}.zip" >> "$GITHUB_ENV"
+          echo "ZIP_NAME=${PLUGIN_SLUG}.${VERSION}.zip" >> "$GITHUB_ENV"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.ZIP_PATH }}
+          generate_release_notes: true

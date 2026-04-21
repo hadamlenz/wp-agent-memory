@@ -329,6 +329,63 @@ Search WordPress documentation. Use this before guessing at API behavior or nati
 
 ---
 
+## agent-memory/fetch-wp-doc
+
+Fetch the full plain-text content of a WordPress.org documentation page using the WordPress REST API. Use a URL returned by `search-wp-docs` to retrieve the actual page body.
+
+**MCP only** (no REST equivalent).
+
+### Supported hosts
+
+| Host / path prefix | Post type queried |
+|---|---|
+| `developer.wordpress.org/plugins/…` | `plugin-handbook` |
+| `developer.wordpress.org/themes/…` | `theme-handbook` |
+| `developer.wordpress.org/block-editor/…` | `plugin-handbook` |
+| `developer.wordpress.org/rest-api/…` | `rest-api-handbook` |
+| `developer.wordpress.org/reference/functions/…` | `wp-parser-function` |
+| `developer.wordpress.org/reference/hooks/…` | `wp-parser-hook` |
+| `developer.wordpress.org/reference/classes/…` | `wp-parser-class` |
+| `developer.wordpress.org/reference/methods/…` | `wp-parser-method` |
+| `wordpress.org/documentation/…` | `helphub_article` |
+| `wordpress.org/news/…` | `posts` |
+
+### Parameters
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| `url` | string | yes | Full URL of the WordPress.org documentation page to fetch |
+
+### Response
+
+```json
+{
+  "title": "Plugin Readmes",
+  "url": "https://developer.wordpress.org/plugins/wordpress-org/how-your-readme-txt-works/",
+  "content": "Full page content as plain text..."
+}
+```
+
+### Example
+
+```json
+{ "ability_name": "agent-memory/fetch-wp-doc", "parameters": { "url": "https://developer.wordpress.org/plugins/wordpress-org/how-your-readme-txt-works/" } }
+```
+
+### Workflow
+
+Use `search-wp-docs` first to find the relevant URL, then `fetch-wp-doc` to get the full content:
+
+```json
+{ "ability_name": "agent-memory/search-wp-docs", "parameters": { "query": "plugin readme.txt format", "source": "developer", "limit": 3 } }
+```
+
+```json
+{ "ability_name": "agent-memory/fetch-wp-doc", "parameters": { "url": "https://developer.wordpress.org/plugins/wordpress-org/how-your-readme-txt-works/" } }
+```
+
+---
+
 ## agent-memory/search-github-issues
 
 Search issues and pull requests on `WordPress/gutenberg` and/or `WordPress/wordpress-develop`. Useful for checking known bugs before filing duplicates or for finding prior art on a problem.

@@ -15,8 +15,11 @@ class External_Sources_Service {
 	private const WP_DOCS_CACHE_TTL  = 300;
 	private const GITHUB_CACHE_TTL   = 120;
 	private const WP_DOCS_BASE       = 'https://developer.wordpress.org/wp-json/wp/v2/search';
+	private const WP_DOCS_REST_BASE  = 'https://developer.wordpress.org/wp-json/wp/v2/';
 	private const WP_NEWS_BASE       = 'https://wordpress.org/news/wp-json/wp/v2/posts';
+	private const WP_NEWS_REST_BASE  = 'https://wordpress.org/news/wp-json/wp/v2/';
 	private const WP_USER_DOCS_BASE  = 'https://wordpress.org/documentation/wp-json/wp/v2/search';
+	private const WP_USER_DOCS_REST_BASE = 'https://wordpress.org/documentation/wp-json/wp/v2/';
 	private const GITHUB_SEARCH_BASE = 'https://api.github.com/search/issues';
 
 	private ?string $github_token;
@@ -159,6 +162,130 @@ class External_Sources_Service {
 		}
 
 		return $output;
+	}
+
+	/**
+	 * Fetch full content for a WordPress.org documentation page via the WP REST API.
+	 *
+	 * @param array<string, mixed> $params
+	 * @return array<string, mixed>
+	 */
+	public function fetch_wp_doc( array $params ): array {
+		$url = isset( $params['url'] ) ? esc_url_raw( (string) $params['url'] ) : '';
+
+		if ( '' === $url ) {
+			return array( 'error' => 'url is required.' );
+		}
+
+		$cache_key = 'wpam_wp_doc_' . md5( $url );
+		$cached    = get_transient( $cache_key );
+		if ( false !== $cached ) {
+			return $cached;
+		}
+
+		$endpoint = $this->resolve_wp_rest_endpoint( $url );
+		if ( null === $endpoint ) {
+			return array( 'error' => 'URL is not a supported WordPress.org documentation page. Supported hosts: developer.wordpress.org, wordpress.org/documentation, wordpress.org/news.' );
+		}
+
+		$api_url = add_query_arg(
+			array(
+				'slug'    => $endpoint['slug'],
+				'_fields' => 'title,content,link',
+			),
+			$endpoint['base'] . $endpoint['post_type']
+		);
+
+		$result = $this->fetch( $api_url );
+		if ( is_string( $result ) ) {
+			return array( 'error' => $result );
+		}
+
+		if ( empty( $result ) || ! isset( $result[0] ) ) {
+			return array( 'error' => 'Document not found.' );
+		}
+
+		$item    = $result[0];
+		$title   = wp_strip_all_tags( is_array( $item['title'] ) ? ( $item['title']['rendered'] ?? '' ) : (string) ( $item['title'] ?? '' ) );
+		$content = wp_strip_all_tags( is_array( $item['content'] ) ? ( $item['content']['rendered'] ?? '' ) : (string) ( $item['content'] ?? '' ) );
+		$link    = (string) ( $item['link'] ?? $url );
+
+		$content = (string) preg_replace( '/\n{3,}/', "\n\n", trim( $content ) );
+
+		$output = array(
+			'title'   => $title,
+			'url'     => $link,
+			'content' => $content,
+		);
+
+		set_transient( $cache_key, $output, self::WP_DOCS_CACHE_TTL );
+
+		return $output;
+	}
+
+	/**
+	 * Resolve the WP REST API base URL, post type, and slug for a WordPress.org docs URL.
+	 *
+	 * @return array{base: string, post_type: string, slug: string}|null
+	 */
+	private function resolve_wp_rest_endpoint( string $url ): ?array {
+		$parsed = wp_parse_url( $url );
+		$host   = $parsed['host'] ?? '';
+		$path   = trim( $parsed['path'] ?? '', '/' );
+		$parts  = explode( '/', $path );
+		$slug   = (string) end( $parts );
+
+		if ( '' === $slug ) {
+			return null;
+		}
+
+		if ( 'developer.wordpress.org' === $host ) {
+			$section = $parts[0] ?? '';
+
+			if ( 'reference' === $section && isset( $parts[1] ) ) {
+				$ref_map = array(
+					'functions' => 'wp-parser-function',
+					'hooks'     => 'wp-parser-hook',
+					'classes'   => 'wp-parser-class',
+					'methods'   => 'wp-parser-method',
+				);
+				$post_type = $ref_map[ $parts[1] ] ?? 'wp-parser-function';
+			} else {
+				$section_map = array(
+					'plugins'      => 'plugin-handbook',
+					'themes'       => 'theme-handbook',
+					'block-editor' => 'plugin-handbook',
+					'rest-api'     => 'rest-api-handbook',
+				);
+				$post_type = $section_map[ $section ] ?? 'plugin-handbook';
+			}
+
+			return array(
+				'base'      => self::WP_DOCS_REST_BASE,
+				'post_type' => $post_type,
+				'slug'      => $slug,
+			);
+		}
+
+		if ( 'wordpress.org' === $host ) {
+			if ( str_starts_with( $path, 'documentation/' ) ) {
+				return array(
+					'base'      => self::WP_USER_DOCS_REST_BASE,
+					'post_type' => 'helphub_article',
+					'slug'      => $slug,
+				);
+			}
+
+			if ( str_starts_with( $path, 'news/' ) ) {
+				return array(
+					'base'      => self::WP_NEWS_REST_BASE,
+					'post_type' => 'posts',
+					'slug'      => $slug,
+				);
+			}
+		}
+
+		return null;
 	}
 
 	/**
