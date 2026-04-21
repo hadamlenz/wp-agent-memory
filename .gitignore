@@ -3,4 +3,5 @@ vendor/
 blocks/markdown/build/
 .phpunit.cache/
 package-lock.json
+composer.lock
 .DS_Store
