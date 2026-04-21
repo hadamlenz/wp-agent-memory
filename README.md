@@ -40,7 +40,7 @@ Every agent needs a dedicated WordPress user and an Application Password. The ro
 **Per agent:**
 
 1. In WP Admin go to **Users → Add New**. Set the role to **Author** for read-only or **Editor** for read+write.
-2. For the username, use whatever identifies the agent — any value works for authentication. If you also want authorship tracked on memory entries (so you can see which agent created or updated them), use the same value the agent will pass as the `agent` parameter in write calls. For Claude Code, that is the model slug shown in the interface (e.g. `claude-sonnet-4-6`, `claude-opus-4-7`).
+2. For the username, use whatever identifies the agent — any value works for authentication. Every entry is always attributed to an author: if the agent passes a matching `agent` slug in write calls, that user is recorded; otherwise the authenticated user making the request is used as the fallback. For the cleanest attribution, use the same username the agent will pass as `agent` in write calls. For Claude Code, that is the model slug shown in the interface (e.g. `claude-sonnet-4-6`, `claude-opus-4-7`).
 3. Open that user's profile and scroll to **Application Passwords**
 4. Enter a name identifying where this credential will be used (e.g. `local-macbook`) then click **Add New Application Password**
 5. Copy the generated password (shown once)

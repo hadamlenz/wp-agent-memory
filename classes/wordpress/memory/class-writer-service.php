@@ -48,9 +48,9 @@ class Writer_Service {
             'post_excerpt' => sanitize_textarea_field( $input['summary'] ),
         );
 
-        if ( ! empty( $input['agent'] ) ) {
-            $post_data['post_author'] = $this->resolve_agent_user( (string) $input['agent'] );
-        }
+        $post_data['post_author'] = ! empty( $input['agent'] )
+            ? $this->resolve_agent_user( (string) $input['agent'] )
+            : get_current_user_id();
 
         kses_remove_filters();
         $post_id = wp_insert_post( $post_data, true );
@@ -209,23 +209,23 @@ class Writer_Service {
     }
 
     /**
-     * Look up the WP user ID for a registered agent slug.
-     * Does not create users — use agent-memory/register-agent for that.
+     * Resolve a WP user ID from an agent slug, falling back to the current authenticated user.
      *
      * @param string $agent Raw agent identifier from input.
      *
-     * @return int WordPress user ID, or 0 if not registered.
+     * @return int WordPress user ID.
      */
     private function resolve_agent_user( string $agent ): int {
         $slug = sanitize_user( $agent, true );
 
-        if ( '' === $slug ) {
-            return 0;
+        if ( '' !== $slug ) {
+            $user = get_user_by( 'login', $slug );
+            if ( $user ) {
+                return $user->ID;
+            }
         }
 
-        $user = get_user_by( 'login', $slug );
-
-        return $user ? $user->ID : 0;
+        return get_current_user_id();
     }
 
     /**
