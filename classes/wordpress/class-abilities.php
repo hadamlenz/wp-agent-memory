@@ -45,6 +45,9 @@ class Abilities {
         }
     }
 
+    /**
+     * Register all read/write memory abilities.
+     */
     public function register(): void {
         $this->register_search_ability();
         $this->register_get_entry_ability();

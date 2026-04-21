@@ -24,6 +24,9 @@ class External_Sources_Service {
 
 	private ?string $github_token;
 
+	/**
+	 * Load optional GitHub token used to raise API rate limits.
+	 */
 	public function __construct() {
 		$this->github_token = \WPAM\WordPress\Settings::get_github_token();
 	}

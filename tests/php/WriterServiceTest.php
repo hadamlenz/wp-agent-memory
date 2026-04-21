@@ -10,6 +10,9 @@ use WPAM\WordPress\Memory\Writer_Service;
 final class WriterServiceTest extends TestCase {
     private Writer_Service $service;
 
+    /**
+     * Initialize the service under test for each test case.
+     */
     protected function setUp(): void {
         $this->service = new Writer_Service( new Search_Service() );
     }
