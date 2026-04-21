@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - '[0-9]*'
 
 jobs:
   release:
@@ -35,7 +35,7 @@ jobs:
       - name: Create release zip
         run: |
           PLUGIN_SLUG="wp-agent-memory"
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${GITHUB_REF_NAME}"
           DEST="/tmp/${PLUGIN_SLUG}"
 
           rsync -rc --exclude-from=.distignore . "${DEST}/"
