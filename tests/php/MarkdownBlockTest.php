@@ -2,7 +2,7 @@
 
 use PHPUnit\Framework\TestCase;
 use League\CommonMark\CommonMarkConverter;
-use WPAM\WordPress\Memory\Response_Shaper;
+use WPAM\Memory\Response_Shaper;
 use WPAM\WordPress\Markdown_Block;
 
 /**

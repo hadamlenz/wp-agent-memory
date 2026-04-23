@@ -7,7 +7,7 @@
 
 namespace WPAM\WordPress;
 
-use WPAM\WordPress\Memory\Response_Shaper;
+use WPAM\Memory\Response_Shaper;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;

@@ -9,7 +9,7 @@ description: Working with the wp-agent-memory REST API — endpoints, field sche
 
 **When working in the `wp-agent-memory` repository:** Fetch entry #264 (`agent-memory/get-entry`) first for plugin orientation — content model, file map, architectural decisions, and available APIs. Then search.
 
-Search before responding. Identify 1–3 topic keywords from the user's request and call `agent-memory/search` with `params.query`.
+Search before responding. Identify 1–3 topic keywords from the user's request and call `agent-memory/search` with `params.query` (or `params.queries` for explicit term arrays like `["hover","vars"]`).
 
 **When debugging:** run a second search after you identify the root cause, using symptom or error terms (e.g. "binding value empty frontend", "markdown not rendering"). The first search catches patterns; the second catches specific gotchas.
 
@@ -49,6 +49,7 @@ Base path: `/wp-json/agent-memory/v1`
 | Parameter | Type | Description |
 |---|---|---|
 | `query` | string | Full-text search query |
+| `queries` | array of strings | Explicit OR-style search terms. When present/non-empty, takes precedence over `query`. |
 | `topic` | array of slugs | Filter by topic |
 | `repo` | array of slugs | Filter by repository |
 | `package` | array of slugs | Filter by package |
@@ -56,6 +57,8 @@ Base path: `/wp-json/agent-memory/v1`
 | `relation_role` | array of slugs | Filter by relation role taxonomy |
 | `relation_group` | array of slugs | Filter by relation group taxonomy |
 | `limit` | integer | Max results (1–50, default 10) |
+
+`queries` uses OR semantics: results can match any term, and entries matching more terms score higher.
 
 **Search result shape:**
 
@@ -160,7 +163,7 @@ The `author` field (display name) is returned in all entry and search responses.
 
 All endpoints require HTTP Basic Auth using a WordPress Application Password. The credential is stored in your MCP config as an `Authorization` header — see the Agent Setup section in [README.md](README.md) for setup steps.
 
-Read endpoints require the `read` capability (Author role or above). Write endpoints (`create-entry`, `update-entry`, `delete-entry`, `mark-useful`) require `edit_pages` (Editor role or above).
+Read endpoints require the `read` capability (Author role or above). Write endpoints (`create-entry`, `update-entry`, `delete-entry`, `mark-useful`) and write abilities (`prune-topics-in-title`) require `edit_pages` (Editor role or above).
 
 ---
 
@@ -185,10 +188,12 @@ Tool names can vary by host prefix and adapter naming conventions. Treat the RES
 | `agent-memory/search` | `GET /search` |
 | `agent-memory/get-entry` | `GET /entry/{id}` |
 | `agent-memory/list-recent` | `GET /recent` |
+| `agent-memory/list-topics` | MCP only |
 | `agent-memory/create-entry` | `POST /entry` |
 | `agent-memory/update-entry` | `PATCH /entry/{id}` |
 | `agent-memory/delete-entry` | `DELETE /entry/{id}` |
 | `agent-memory/mark-useful` | `POST /entry/{id}/useful` |
+| `agent-memory/prune-topics-in-title` | MCP only |
 | `agent-memory/search-wp-docs` | MCP only |
 | `agent-memory/fetch-wp-doc` | MCP only |
 | `agent-memory/search-github-issues` | MCP only |
@@ -198,6 +203,20 @@ Run `discover-abilities` to confirm the current list. For full parameter schemas
 **Search:**
 ```json
 { "ability_name": "agent-memory/search", "parameters": { "query": "hover states blocks", "limit": 5 } }
+```
+
+```json
+{ "ability_name": "agent-memory/search", "parameters": { "queries": ["hover", "vars"], "limit": 5 } }
+```
+
+**List topics:**
+```json
+{ "ability_name": "agent-memory/list-topics", "parameters": { "include_all": true } }
+```
+
+**Prune topics in titles:**
+```json
+{ "ability_name": "agent-memory/prune-topics-in-title", "parameters": { "run": true } }
 ```
 
 **Create:**

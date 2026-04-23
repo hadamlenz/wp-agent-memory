@@ -1,6 +1,6 @@
 # Abilities Reference
 
-All abilities are exposed via the MCP adapter (`mcp__wp-agent-memory__mcp-adapter-execute-ability`) and have equivalent REST endpoints under `/wp-json/agent-memory/v1`.
+All abilities are exposed via the MCP adapter (`mcp__wp-agent-memory__mcp-adapter-execute-ability`). Core memory CRUD/search abilities map to REST endpoints under `/wp-json/agent-memory/v1`; some abilities are MCP-only.
 
 **Auth:** HTTP Basic. Read abilities require `read` capability (subscriber+); write abilities require `edit_pages` (editor+).
 
@@ -24,6 +24,7 @@ Search memory entries using relevance + usage-based ranking.
 | Name | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `query` | string | — | — | Full-text search query |
+| `queries` | array of strings | — | — | Explicit OR-style term list. When present and non-empty, takes precedence over `query` (e.g. `["hover","vars"]`). |
 | `topic` | array of slugs | — | — | Filter by topic taxonomy |
 | `repo` | array of slugs | — | — | Filter by repository |
 | `package` | array of slugs | — | — | Filter by package |
@@ -31,6 +32,8 @@ Search memory entries using relevance + usage-based ranking.
 | `relation_role` | array of slugs | — | — | Filter by relation role taxonomy (`canonical`, `companion`, `supporting`, `superseded`, `historical`, `duplicate`, `alternative`) |
 | `relation_group` | array of slugs | — | — | Filter by relation group taxonomy (single group slug such as `g-80`) |
 | `limit` | integer | — | `10` | Max results (1–50) |
+
+`queries` uses OR semantics across terms. Entries matching more terms rank higher than entries matching fewer terms.
 
 ### Response
 
@@ -64,6 +67,13 @@ Search memory entries using relevance + usage-based ranking.
 {
   "ability_name": "agent-memory/search",
   "parameters": { "query": "hover states blocks", "limit": 5 }
+}
+```
+
+```json
+{
+  "ability_name": "agent-memory/search",
+  "parameters": { "queries": ["hover", "vars"], "limit": 5 }
 }
 ```
 
@@ -154,6 +164,87 @@ Same compact shape as search results but without a `score` field, ordered by pos
 ```
 
 > **Note:** Due to a known PHP/WP bug ([mcp-adapter #116](https://github.com/WordPress/mcp-adapter/issues/116)), passing `{}` as parameters fails. Always pass at least one key, e.g. `{ "limit": 10 }`.
+
+---
+
+## agent-memory/list-topics
+
+List all `memory_topic` terms with usage counts.
+
+**Say things like:**
+> "Show me every topic slug and how many entries use each."
+> "List all topics so we can clean them up."
+
+**REST:** MCP-only (no REST endpoint)
+
+### Parameters
+
+None.
+
+### Response
+
+```json
+{
+  "count": 3,
+  "results": [
+    { "slug": "hover", "count": 12 },
+    { "slug": "wordpress", "count": 8 },
+    { "slug": "legacy-note", "count": 0 }
+  ]
+}
+```
+
+### Example
+
+```json
+{
+  "ability_name": "agent-memory/list-topics",
+  "parameters": { "include_all": true }
+}
+```
+
+---
+
+## agent-memory/prune-topics-in-title
+
+Remove `memory_topic` assignments from entries when the topic phrase already appears in the entry title.
+
+This **does not delete taxonomy terms**. It only unassigns redundant topic terms from matching entries.
+
+**Say things like:**
+> "Prune topics that are already present in memory titles."
+> "Clean redundant topics from entries, but don't delete terms."
+
+**REST:** MCP-only (no REST endpoint)
+
+### Parameters
+
+None.
+
+### Response
+
+```json
+{
+  "scanned_entries": 35,
+  "updated_entries": 9,
+  "removed_topic_assignments": 14,
+  "removed_by_topic": {
+    "hover": 5,
+    "vars": 4,
+    "wordpress": 2,
+    "custom-properties": 3
+  }
+}
+```
+
+### Example
+
+```json
+{
+  "ability_name": "agent-memory/prune-topics-in-title",
+  "parameters": { "run": true }
+}
+```
 
 ---
 
@@ -395,14 +486,20 @@ Fetch the full plain-text content of a WordPress.org documentation page using th
 |---|---|
 | `developer.wordpress.org/plugins/…` | `plugin-handbook` |
 | `developer.wordpress.org/themes/…` | `theme-handbook` |
-| `developer.wordpress.org/block-editor/…` | `plugin-handbook` |
+| `developer.wordpress.org/block-editor/…` | `blocks-handbook` |
 | `developer.wordpress.org/rest-api/…` | `rest-api-handbook` |
+| `developer.wordpress.org/apis/…` | `apis-handbook` |
+| `developer.wordpress.org/advanced-administration/…` | `adv-admin-handbook` |
+| `developer.wordpress.org/coding-standards/…` | `wpcs-handbook` |
+| `developer.wordpress.org/secure-custom-fields/…` | `scf-handbook` |
 | `developer.wordpress.org/reference/functions/…` | `wp-parser-function` |
 | `developer.wordpress.org/reference/hooks/…` | `wp-parser-hook` |
 | `developer.wordpress.org/reference/classes/…` | `wp-parser-class` |
 | `developer.wordpress.org/reference/methods/…` | `wp-parser-method` |
 | `wordpress.org/documentation/…` | `helphub_article` |
 | `wordpress.org/news/…` | `posts` |
+
+`fetch-wp-doc` requires an exact host+path match between the requested URL and the API result link (query string and fragment are ignored). If the slug exists under a different handbook path, it returns `Document not found.`
 
 ### Parameters
 

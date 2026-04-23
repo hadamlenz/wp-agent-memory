@@ -7,9 +7,9 @@
 
 namespace WPAM\WordPress;
 
-use WPAM\WordPress\External\External_Sources_Service;
-use WPAM\WordPress\Memory\Search_Service;
-use WPAM\WordPress\Memory\Writer_Service;
+use WPAM\External\External_Sources_Service;
+use WPAM\Memory\Search_Service;
+use WPAM\Memory\Writer_Service;
 use WPAM\WordPress\Markdown_Block;
 use WPAM\WordPress\Editor;
 

@@ -1,7 +1,7 @@
 <?php
 
 use PHPUnit\Framework\TestCase;
-use WPAM\WordPress\Memory\Relation_Helper;
+use WPAM\Memory\Relation_Helper;
 
 /**
  * Unit tests for relation taxonomy helpers.

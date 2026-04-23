@@ -1,7 +1,7 @@
 <?php
 
 use PHPUnit\Framework\TestCase;
-use WPAM\WordPress\Memory\Response_Shaper;
+use WPAM\Memory\Response_Shaper;
 
 /**
  * Unit tests for snippet extraction and response shape contracts.

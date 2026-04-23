@@ -5,7 +5,7 @@
  * @package WPAM
  */
 
-namespace WPAM\WordPress\Memory;
+namespace WPAM\Memory;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -146,6 +146,119 @@ class Writer_Service {
             'deleted' => true,
             'id'      => $id,
         );
+    }
+
+    /**
+     * Remove redundant topic assignments when the topic phrase already appears in the entry title.
+     * Topics are unassigned from entries only — taxonomy terms are not deleted.
+     *
+     * @return array<string, mixed>
+     */
+    public function prune_topics_in_title(): array {
+        $posts = get_posts(
+            array(
+                'post_type'      => 'memory_entry',
+                'post_status'    => 'publish',
+                'posts_per_page' => -1,
+                'fields'         => 'ids',
+                'orderby'        => array( 'ID' => 'ASC' ),
+                'no_found_rows'  => true,
+            )
+        );
+
+        $scanned_entries           = 0;
+        $updated_entries           = 0;
+        $removed_topic_assignments = 0;
+        $removed_by_topic          = array();
+
+        foreach ( $posts as $post_id ) {
+            $post_id = (int) $post_id;
+            if ( $post_id <= 0 ) {
+                continue;
+            }
+
+            ++$scanned_entries;
+            $entry_title = (string) get_the_title( $post_id );
+
+            $entry_topics = wp_get_post_terms(
+                $post_id,
+                'memory_topic',
+                array(
+                    'fields' => 'all',
+                )
+            );
+
+            if ( ! is_array( $entry_topics ) || empty( $entry_topics ) ) {
+                continue;
+            }
+
+            $remaining_term_ids = array();
+            $removed_for_entry  = 0;
+
+            foreach ( $entry_topics as $entry_topic ) {
+                $slug    = isset( $entry_topic->slug ) ? (string) $entry_topic->slug : '';
+                $term_id = isset( $entry_topic->term_id ) ? (int) $entry_topic->term_id : 0;
+
+                if ( '' === $slug || $term_id <= 0 ) {
+                    if ( $term_id > 0 ) {
+                        $remaining_term_ids[] = $term_id;
+                    }
+                    continue;
+                }
+
+                if ( self::topic_matches_entry_title( $slug, $entry_title ) ) {
+                    ++$removed_for_entry;
+                    ++$removed_topic_assignments;
+                    $removed_by_topic[ $slug ] = (int) ( $removed_by_topic[ $slug ] ?? 0 ) + 1;
+                    continue;
+                }
+
+                $remaining_term_ids[] = $term_id;
+            }
+
+            if ( $removed_for_entry > 0 ) {
+                wp_set_post_terms( $post_id, $remaining_term_ids, 'memory_topic' );
+                ++$updated_entries;
+            }
+        }
+
+        if ( $updated_entries > 0 ) {
+            Search_Service::bump_cache_version();
+        }
+
+        uksort(
+            $removed_by_topic,
+            static function ( string $a, string $b ) use ( $removed_by_topic ): int {
+                $count_sort = ( $removed_by_topic[ $b ] ?? 0 ) <=> ( $removed_by_topic[ $a ] ?? 0 );
+                if ( 0 !== $count_sort ) {
+                    return $count_sort;
+                }
+
+                return strcmp( $a, $b );
+            }
+        );
+
+        return array(
+            'scanned_entries'           => $scanned_entries,
+            'updated_entries'           => $updated_entries,
+            'removed_topic_assignments' => $removed_topic_assignments,
+            'removed_by_topic'          => $removed_by_topic,
+        );
+    }
+
+    /**
+     * Determine whether a topic slug should be pruned from an entry title.
+     *
+     * @param string $topic_slug Topic slug.
+     * @param string $title      Entry title.
+     *
+     * @return bool
+     */
+    public static function topic_matches_entry_title( string $topic_slug, string $title ): bool {
+        $topic_phrase = Search_Service::normalize_phrase_text( $topic_slug );
+        $title_phrase = Search_Service::normalize_phrase_text( $title );
+
+        return Search_Service::phrase_contains( $title_phrase, $topic_phrase );
     }
 
     /**

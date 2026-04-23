@@ -5,7 +5,7 @@
  * @package WPAM
  */
 
-namespace WPAM\WordPress\External;
+namespace WPAM\External;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -203,11 +203,11 @@ class External_Sources_Service {
 			return array( 'error' => $result );
 		}
 
-		if ( empty( $result ) || ! isset( $result[0] ) ) {
+		$item = $this->find_matching_doc_item( $result, $url );
+		if ( null === $item ) {
 			return array( 'error' => 'Document not found.' );
 		}
 
-		$item    = $result[0];
 		$title   = wp_strip_all_tags( is_array( $item['title'] ) ? ( $item['title']['rendered'] ?? '' ) : (string) ( $item['title'] ?? '' ) );
 		$content = wp_strip_all_tags( is_array( $item['content'] ) ? ( $item['content']['rendered'] ?? '' ) : (string) ( $item['content'] ?? '' ) );
 		$link    = (string) ( $item['link'] ?? $url );
@@ -232,7 +232,7 @@ class External_Sources_Service {
 	 */
 	private function resolve_wp_rest_endpoint( string $url ): ?array {
 		$parsed = wp_parse_url( $url );
-		$host   = $parsed['host'] ?? '';
+		$host   = strtolower( (string) ( $parsed['host'] ?? '' ) );
 		$path   = trim( $parsed['path'] ?? '', '/' );
 		$parts  = explode( '/', $path );
 		$slug   = (string) end( $parts );
@@ -254,12 +254,19 @@ class External_Sources_Service {
 				$post_type = $ref_map[ $parts[1] ] ?? 'wp-parser-function';
 			} else {
 				$section_map = array(
-					'plugins'      => 'plugin-handbook',
-					'themes'       => 'theme-handbook',
-					'block-editor' => 'plugin-handbook',
-					'rest-api'     => 'rest-api-handbook',
+					'plugins'                 => 'plugin-handbook',
+					'themes'                  => 'theme-handbook',
+					'block-editor'            => 'blocks-handbook',
+					'rest-api'                => 'rest-api-handbook',
+					'apis'                    => 'apis-handbook',
+					'advanced-administration' => 'adv-admin-handbook',
+					'coding-standards'        => 'wpcs-handbook',
+					'secure-custom-fields'    => 'scf-handbook',
 				);
-				$post_type = $section_map[ $section ] ?? 'plugin-handbook';
+				if ( ! isset( $section_map[ $section ] ) ) {
+					return null;
+				}
+				$post_type = $section_map[ $section ];
 			}
 
 			return array(
@@ -288,6 +295,53 @@ class External_Sources_Service {
 		}
 
 		return null;
+	}
+
+	/**
+	 * Select an exact URL match from API results.
+	 *
+	 * @param array<mixed> $items API response items.
+	 * @return array<string, mixed>|null
+	 */
+	private function find_matching_doc_item( array $items, string $requested_url ): ?array {
+		$requested = $this->normalize_url_for_match( $requested_url );
+		if ( null === $requested ) {
+			return null;
+		}
+
+		foreach ( $items as $item ) {
+			if ( ! is_array( $item ) ) {
+				continue;
+			}
+
+			$link = isset( $item['link'] ) ? (string) $item['link'] : '';
+			if ( '' === $link ) {
+				continue;
+			}
+
+			if ( $requested === $this->normalize_url_for_match( $link ) ) {
+				return $item;
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Normalize URLs for host+path comparison.
+	 *
+	 * Query strings and fragments are intentionally ignored.
+	 */
+	private function normalize_url_for_match( string $url ): ?string {
+		$parsed = wp_parse_url( $url );
+		$host   = strtolower( (string) ( $parsed['host'] ?? '' ) );
+		$path   = trim( (string) ( $parsed['path'] ?? '' ), '/' );
+
+		if ( '' === $host ) {
+			return null;
+		}
+
+		return $host . '/' . $path;
 	}
 
 	/**

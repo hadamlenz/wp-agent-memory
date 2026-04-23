@@ -7,8 +7,8 @@
 
 namespace WPAM\WordPress;
 
-use WPAM\WordPress\Memory\Relation_Helper;
-use WPAM\WordPress\Memory\Search_Service;
+use WPAM\Memory\Relation_Helper;
+use WPAM\Memory\Search_Service;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;

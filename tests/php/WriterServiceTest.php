@@ -1,8 +1,8 @@
 <?php
 
 use PHPUnit\Framework\TestCase;
-use WPAM\WordPress\Memory\Search_Service;
-use WPAM\WordPress\Memory\Writer_Service;
+use WPAM\Memory\Search_Service;
+use WPAM\Memory\Writer_Service;
 
 /**
  * Unit tests for Writer_Service validation and sanitization logic.
@@ -90,6 +90,42 @@ final class WriterServiceTest extends TestCase {
 
         $this->assertArrayHasKey( 'error', $result );
         $this->assertStringContainsString( 'not found', $result['error'] );
+    }
+
+    /**
+     * Topic slug phrases present in title text should be considered redundant.
+     */
+    public function test_topic_match_detects_slug_phrase_in_title(): void {
+        $this->assertTrue(
+            Writer_Service::topic_matches_entry_title(
+                'hover-vars',
+                'Hover Vars Controls for Groups'
+            )
+        );
+    }
+
+    /**
+     * Partial-word collisions should not be treated as phrase matches.
+     */
+    public function test_topic_match_rejects_partial_word_collision(): void {
+        $this->assertFalse(
+            Writer_Service::topic_matches_entry_title(
+                'var',
+                'Hover Vars Controls'
+            )
+        );
+    }
+
+    /**
+     * Underscores in topic slugs are treated as spaces for matching.
+     */
+    public function test_topic_match_treats_underscores_as_spaces(): void {
+        $this->assertTrue(
+            Writer_Service::topic_matches_entry_title(
+                'custom_properties',
+                'Custom Properties for Hover Styles'
+            )
+        );
     }
 
 }

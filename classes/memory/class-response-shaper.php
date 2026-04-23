@@ -5,7 +5,7 @@
  * @package WPAM
  */
 
-namespace WPAM\WordPress\Memory;
+namespace WPAM\Memory;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;

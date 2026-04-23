@@ -7,7 +7,7 @@
 
 namespace WPAM\WordPress;
 
-use WPAM\WordPress\External\External_Sources_Service;
+use WPAM\External\External_Sources_Service;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -129,7 +129,7 @@ class External_Abilities {
 			'agent-memory/fetch-wp-doc',
 			array(
 				'label'         => 'Fetch WordPress Doc Page',
-				'description'   => 'Fetch the full content of a WordPress.org documentation page by URL. Supports developer.wordpress.org (plugin/theme handbooks and Code Reference), wordpress.org/documentation, and wordpress.org/news. Use a URL returned by search-wp-docs.',
+				'description'   => 'Fetch the full content of a WordPress.org documentation page by URL. Supports developer.wordpress.org handbooks and Code Reference (`plugins`, `themes`, `block-editor`, `rest-api`, `apis`, `advanced-administration`, `coding-standards`, `secure-custom-fields`, `reference/*`), wordpress.org/documentation, and wordpress.org/news. Returns not found when the matched slug points to a different URL path.',
 				'input_schema'  => array(
 					'type'       => 'object',
 					'required'   => array( 'url' ),

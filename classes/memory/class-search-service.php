@@ -5,7 +5,7 @@
  * @package WPAM
  */
 
-namespace WPAM\WordPress\Memory;
+namespace WPAM\Memory;
 
 use WP_Post;
 
@@ -71,6 +71,111 @@ class Search_Service {
     }
 
     /**
+     * Normalize text for boundary-safe phrase/token matching.
+     *
+     * Rules:
+     * - lowercase
+     * - treat `-` and `_` as spaces
+     * - collapse punctuation and repeated whitespace to single spaces
+     *
+     * @param string $text Raw input text.
+     *
+     * @return string
+     */
+    public static function normalize_phrase_text( string $text ): string {
+        $text = strtolower( str_replace( array( '-', '_' ), ' ', trim( $text ) ) );
+        $text = preg_replace( '/[^a-z0-9]+/', ' ', $text );
+        $text = preg_replace( '/\s+/', ' ', $text );
+
+        return trim( $text ?? '' );
+    }
+
+    /**
+     * Split normalized text into unique words.
+     *
+     * @param string $text Normalized text.
+     *
+     * @return array<int, string>
+     */
+    public static function split_normalized_words( string $text ): array {
+        if ( '' === trim( $text ) ) {
+            return array();
+        }
+
+        return array_values(
+            array_unique(
+                array_filter(
+                    array_map(
+                        static function ( $word ): string {
+                            return trim( (string) $word );
+                        },
+                        explode( ' ', $text )
+                    )
+                )
+            )
+        );
+    }
+
+    /**
+     * Resolve query phrase + query terms from search parameters.
+     *
+     * Precedence:
+     * 1) If `queries` contains one or more non-empty strings, use it.
+     * 2) Otherwise use `query` string and split into term words.
+     *
+     * @param array<string, mixed> $params Search params.
+     *
+     * @return array{query: string, terms: array<int, string>}
+     */
+    public static function resolve_query_terms( array $params ): array {
+        $terms = array();
+
+        if ( ! empty( $params['queries'] ) && is_array( $params['queries'] ) ) {
+            foreach ( $params['queries'] as $term ) {
+                $normalized = self::normalize_phrase_text( (string) $term );
+                if ( '' === $normalized ) {
+                    continue;
+                }
+                $terms[] = $normalized;
+            }
+
+            $terms = array_values( array_unique( $terms ) );
+            if ( ! empty( $terms ) ) {
+                return array(
+                    'query' => self::normalize_query( implode( ' ', $terms ) ),
+                    'terms' => $terms,
+                );
+            }
+        }
+
+        $query = (string) ( $params['query'] ?? '' );
+
+        return array(
+            'query' => self::normalize_query( $query ),
+            'terms' => self::split_normalized_words( self::normalize_phrase_text( $query ) ),
+        );
+    }
+
+    /**
+     * Boundary-safe phrase containment check against normalized text.
+     *
+     * @param string $haystack Normalized haystack text.
+     * @param string $needle   Normalized needle phrase.
+     *
+     * @return bool
+     */
+    public static function phrase_contains( string $haystack, string $needle ): bool {
+        $haystack = trim( $haystack );
+        $needle   = trim( $needle );
+
+        if ( '' === $haystack || '' === $needle ) {
+            return false;
+        }
+
+        return str_contains( ' ' . $haystack . ' ', ' ' . $needle . ' ' );
+    }
+
+    /**
      * Parse taxonomy filter args into normalized slugs.
      *
      * @param mixed $value Comma-separated string or array input.
@@ -99,7 +204,7 @@ class Search_Service {
     }
 
     /**
-     * Score a candidate for the given query.
+     * Score a candidate for the given query phrase and tokenized terms.
      *
      * Ranking precedence (higher first):
      * 1) exact/partial symbol_name
@@ -107,12 +212,13 @@ class Search_Service {
      * 3) taxonomy terms
      * 4) excerpt/content
      *
-     * @param array<string, mixed> $candidate Candidate fields.
-     * @param string               $query     Normalized search query.
+     * @param array<string, mixed> $candidate   Candidate fields.
+     * @param string               $query       Normalized query phrase.
+     * @param array<int, string>   $query_terms Normalized query terms (OR semantics).
      *
      * @return float
      */
-    public function score_candidate( array $candidate, string $query ): float {
+    public function score_candidate( array $candidate, string $query, array $query_terms = array() ): float {
         $query     = self::normalize_query( $query );
         $symbol    = self::normalize_query( (string) ( $candidate['symbol_name'] ?? '' ) );
         $title     = self::normalize_query( (string) ( $candidate['title'] ?? '' ) );
@@ -127,6 +233,16 @@ class Search_Service {
             (array) ( $candidate['relation_group'] ?? array() )
         );
         $terms     = self::normalize_query( implode( ' ', $terms_raw ) );
+
+        $symbol_phrase = self::normalize_phrase_text( (string) ( $candidate['symbol_name'] ?? '' ) );
+        $title_phrase  = self::normalize_phrase_text( (string) ( $candidate['title'] ?? '' ) );
+        $terms_phrase  = self::normalize_phrase_text( implode( ' ', $terms_raw ) );
+        $excerpt_phrase = self::normalize_phrase_text( (string) ( $candidate['excerpt'] ?? '' ) );
+        $content_phrase = self::normalize_phrase_text( wp_strip_all_tags( (string) ( $candidate['content'] ?? '' ) ) );
+
+        if ( empty( $query_terms ) && '' !== $query ) {
+            $query_terms = self::split_normalized_words( self::normalize_phrase_text( $query ) );
+        }
 
         $score = 0.0;
 
@@ -156,6 +272,45 @@ class Search_Service {
             }
         }
 
+        $matched_title_terms  = 0;
+        $matched_symbol_terms = 0;
+        foreach ( $query_terms as $term ) {
+            $term = self::normalize_phrase_text( (string) $term );
+            if ( '' === $term ) {
+                continue;
+            }
+
+            if ( self::phrase_contains( $symbol_phrase, $term ) ) {
+                $score += 110;
+                ++$matched_symbol_terms;
+            }
+
+            if ( self::phrase_contains( $title_phrase, $term ) ) {
+                $score += 90;
+                ++$matched_title_terms;
+            }
+
+            if ( self::phrase_contains( $terms_phrase, $term ) ) {
+                $score += 60;
+            }
+
+            if ( self::phrase_contains( $excerpt_phrase, $term ) ) {
+                $score += 30;
+            }
+
+            if ( self::phrase_contains( $content_phrase, $term ) ) {
+                $score += 10;
+            }
+        }
+
+        if ( $matched_symbol_terms > 1 ) {
+            $score += 20 * ( $matched_symbol_terms - 1 );
+        }
+
+        if ( $matched_title_terms > 1 ) {
+            $score += 20 * ( $matched_title_terms - 1 );
+        }
+
         $score += (float) ( $candidate['rank_bias'] ?? 0 );
 
         $last_used = (string) ( $candidate['last_used_gmt'] ?? '' );
@@ -180,7 +335,22 @@ class Search_Service {
      * @return array<int, array<string, mixed>>
      */
     public function search( array $params ): array {
-        $query         = self::normalize_query( (string) ( $params['query'] ?? '' ) );
+        $resolved      = self::resolve_query_terms( $params );
+        $query         = $resolved['query'];
+        $query_terms   = $resolved['terms'];
+        $search_terms  = array_values(
+            array_unique(
+                array_filter(
+                    array_merge(
+                        '' !== $query ? array( $query ) : array(),
+                        $query_terms
+                    )
+                )
+            )
+        );
+        if ( empty( $search_terms ) ) {
+            $search_terms = array( '' );
+        }
         $limit         = max( 1, min( self::MAX_LIMIT, (int) ( $params['limit'] ?? self::DEFAULT_LIMIT ) ) );
         $repo_filter   = self::parse_filter_values( $params['repo'] ?? array() );
         $pack_filter   = self::parse_filter_values( $params['package'] ?? array() );
@@ -188,85 +358,94 @@ class Search_Service {
         $topic_filter  = self::parse_filter_values( $params['topic'] ?? array() );
         $role_filter   = self::parse_filter_values( $params['relation_role'] ?? array() );
         $group_filter  = self::parse_filter_values( $params['relation_group'] ?? array() );
-        $cache_key     = $this->build_cache_key( array( $query, $limit, $repo_filter, $pack_filter, $type_filter, $topic_filter, $role_filter, $group_filter ) );
+        $cache_key     = $this->build_cache_key( array( $search_terms, $limit, $repo_filter, $pack_filter, $type_filter, $topic_filter, $role_filter, $group_filter ) );
         $cached_result = get_transient( $cache_key );
 
         if ( is_array( $cached_result ) ) {
             return $cached_result;
         }
 
-        // Fetch 4× the requested limit (min 20, max 200) so custom scoring has a large enough
-        // pool to reorder before trimming. WP_Query's built-in 's' ordering is not aware of
-        // symbol_name, rank_bias, or usage signals — those are applied in score_candidate().
-        $args = array(
-            'post_type'      => 'memory_entry',
-            'post_status'    => 'publish',
-            'posts_per_page' => min( max( 20, $limit * 4 ), 200 ),
-            'orderby'        => array(
-                'date' => 'DESC',
-            ),
-            'no_found_rows'  => true,
-            's'              => $query,
-        );
-
-        $tax_query = array();
-
-        if ( ! empty( $repo_filter ) ) {
-            $tax_query[] = array(
-                'taxonomy' => 'memory_repo',
-                'field'    => 'slug',
-                'terms'    => $repo_filter,
+        // Fetch 4× the requested limit (min 20, max 200) per search variant so token queries
+        // can match independently (OR semantics), then merge/dedupe by post ID before scoring.
+        $posts_per_variant = min( max( 20, $limit * 4 ), 200 );
+        $posts_by_id       = array();
+        foreach ( $search_terms as $search_term ) {
+            $args = array(
+                'post_type'      => 'memory_entry',
+                'post_status'    => 'publish',
+                'posts_per_page' => $posts_per_variant,
+                'orderby'        => array(
+                    'date' => 'DESC',
+                ),
+                'no_found_rows'  => true,
+                's'              => (string) $search_term,
             );
-        }
 
-        if ( ! empty( $pack_filter ) ) {
-            $tax_query[] = array(
-                'taxonomy' => 'memory_package',
-                'field'    => 'slug',
-                'terms'    => $pack_filter,
-            );
-        }
+            $tax_query = array();
 
-        if ( ! empty( $type_filter ) ) {
-            $tax_query[] = array(
-                'taxonomy' => 'memory_symbol_type',
-                'field'    => 'slug',
-                'terms'    => $type_filter,
-            );
-        }
-
-        if ( ! empty( $topic_filter ) ) {
-            $tax_query[] = array(
-                'taxonomy' => 'memory_topic',
-                'field'    => 'slug',
-                'terms'    => $topic_filter,
-            );
-        }
-
-        if ( ! empty( $role_filter ) ) {
-            $tax_query[] = array(
-                'taxonomy' => 'memory_relation_role',
-                'field'    => 'slug',
-                'terms'    => $role_filter,
-            );
-        }
-
-        if ( ! empty( $group_filter ) ) {
-            $tax_query[] = array(
-                'taxonomy' => 'memory_relation_group',
-                'field'    => 'slug',
-                'terms'    => $group_filter,
-            );
-        }
-
-        if ( ! empty( $tax_query ) ) {
-            if ( count( $tax_query ) > 1 ) {
-                $tax_query = array_merge( array( 'relation' => 'AND' ), $tax_query );
+            if ( ! empty( $repo_filter ) ) {
+                $tax_query[] = array(
+                    'taxonomy' => 'memory_repo',
+                    'field'    => 'slug',
+                    'terms'    => $repo_filter,
+                );
             }
-            $args['tax_query'] = $tax_query;
+
+            if ( ! empty( $pack_filter ) ) {
+                $tax_query[] = array(
+                    'taxonomy' => 'memory_package',
+                    'field'    => 'slug',
+                    'terms'    => $pack_filter,
+                );
+            }
+
+            if ( ! empty( $type_filter ) ) {
+                $tax_query[] = array(
+                    'taxonomy' => 'memory_symbol_type',
+                    'field'    => 'slug',
+                    'terms'    => $type_filter,
+                );
+            }
+
+            if ( ! empty( $topic_filter ) ) {
+                $tax_query[] = array(
+                    'taxonomy' => 'memory_topic',
+                    'field'    => 'slug',
+                    'terms'    => $topic_filter,
+                );
+            }
+
+            if ( ! empty( $role_filter ) ) {
+                $tax_query[] = array(
+                    'taxonomy' => 'memory_relation_role',
+                    'field'    => 'slug',
+                    'terms'    => $role_filter,
+                );
+            }
+
+            if ( ! empty( $group_filter ) ) {
+                $tax_query[] = array(
+                    'taxonomy' => 'memory_relation_group',
+                    'field'    => 'slug',
+                    'terms'    => $group_filter,
+                );
+            }
+
+            if ( ! empty( $tax_query ) ) {
+                if ( count( $tax_query ) > 1 ) {
+                    $tax_query = array_merge( array( 'relation' => 'AND' ), $tax_query );
+                }
+                $args['tax_query'] = $tax_query;
+            }
+
+            foreach ( get_posts( $args ) as $post ) {
+                if ( $post instanceof WP_Post ) {
+                    $posts_by_id[ (int) $post->ID ] = $post;
+                }
+            }
         }
 
-        $posts      = get_posts( $args );
+        $posts      = array_values( $posts_by_id );
         $candidates = array();
 
         foreach ( $posts as $post ) {
@@ -275,7 +454,7 @@ class Search_Service {
             }
 
             $candidate = $this->build_candidate( $post );
-            $score     = $this->score_candidate( $candidate, $query );
+            $score     = $this->score_candidate( $candidate, $query, $query_terms );
 
             if ( '' !== $query && $score <= 0 ) {
                 continue;
@@ -368,6 +547,50 @@ class Search_Service {
         }
 
         return $results;
+    }
+
+    /**
+     * List all topic terms with usage counts.
+     *
+     * @return array<int, array{slug: string, count: int}>
+     */
+    public function list_topics(): array {
+        $terms = get_terms(
+            array(
+                'taxonomy'   => 'memory_topic',
+                'hide_empty' => false,
+            )
+        );
+
+        if ( ! is_array( $terms ) ) {
+            return array();
+        }
+
+        $topics = array();
+        foreach ( $terms as $term ) {
+            if ( ! isset( $term->slug ) ) {
+                continue;
+            }
+
+            $topics[] = array(
+                'slug'  => (string) $term->slug,
+                'count' => isset( $term->count ) ? (int) $term->count : 0,
+            );
+        }
+
+        usort(
+            $topics,
+            static function ( array $a, array $b ): int {
+                $count_sort = $b['count'] <=> $a['count'];
+                if ( 0 !== $count_sort ) {
+                    return $count_sort;
+                }
+
+                return strcmp( $a['slug'], $b['slug'] );
+            }
+        );
+
+        return $topics;
     }
 
     /**
