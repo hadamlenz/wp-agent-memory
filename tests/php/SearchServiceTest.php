@@ -69,4 +69,34 @@ final class SearchServiceTest extends TestCase {
             Search_Service::parse_filter_values( array( 'Block Editor', 'Hooks' ) )
         );
     }
+
+    /**
+     * Relation fields must not affect ranking when absent or empty.
+     */
+    public function test_score_unchanged_when_relation_fields_are_absent_or_empty(): void {
+        $service = new Search_Service();
+
+        $baseline = array(
+            'symbol_name' => '',
+            'title'       => 'Hover Style System',
+            'repo'        => array( 'unc-wilson' ),
+            'package'     => array(),
+            'topic'       => array( 'blocks' ),
+            'symbol_type' => array(),
+            'summary'     => '',
+            'excerpt'     => 'Companion entry guidance',
+            'content'     => '',
+            'keywords'    => array(),
+            'rank_bias'   => 0,
+        );
+
+        $with_empty_relation = $baseline;
+        $with_empty_relation['relation_role']  = array();
+        $with_empty_relation['relation_group'] = array();
+
+        $this->assertSame(
+            $service->score_candidate( $baseline, 'hover' ),
+            $service->score_candidate( $with_empty_relation, 'hover' )
+        );
+    }
 }

@@ -95,6 +95,17 @@ To increase the GitHub API rate limit for `search-github-issues` from ~10 reques
 
 Generate a token at [github.com/settings/tokens](https://github.com/settings/tokens). If you prefer to set it as a server environment variable (`GITHUB_TOKEN`), that will take precedence over the settings page value.
 
+### Relationship Taxonomies (v1)
+
+Memory relationships are modeled as two taxonomies on `memory_entry`:
+
+- `memory_relation_role` — locked role vocabulary: `canonical`, `companion`, `supporting`, `superseded`, `historical`, `duplicate`, `alternative`
+- `memory_relation_group` — cluster/thread slug (single group per entry in v1)
+
+This is a cluster-based model, not an explicit edge graph. Write APIs accept `relation_role` and `relation_group` arrays with single-value cardinality enforced.
+
+On first load after upgrade, a one-time backfill scans existing entries for `Status: Companion to [#<id> ...]` and seeds role/group terms automatically. Existing summary/content text is left unchanged.
+
 ## Reference
 
 - [docs/abilities.md](docs/abilities.md) — full ability and REST endpoint reference, including `search-wp-docs`, `fetch-wp-doc`, and `search-github-issues`

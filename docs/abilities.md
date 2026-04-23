@@ -4,6 +4,8 @@ All abilities are exposed via the MCP adapter (`mcp__wp-agent-memory__mcp-adapte
 
 **Auth:** HTTP Basic. Read abilities require `read` capability (subscriber+); write abilities require `edit_pages` (editor+).
 
+**Relationship model (v1):** relation metadata is cluster-based taxonomy data (`relation_role` + `relation_group`), not explicit per-edge links. A one-time migration backfills `Status: Companion to [#<id> ...]` prose into these taxonomies.
+
 ---
 
 ## agent-memory/search
@@ -26,6 +28,8 @@ Search memory entries using relevance + usage-based ranking.
 | `repo` | array of slugs | — | — | Filter by repository |
 | `package` | array of slugs | — | — | Filter by package |
 | `symbol_type` | array of slugs | — | — | Filter by symbol type |
+| `relation_role` | array of slugs | — | — | Filter by relation role taxonomy (`canonical`, `companion`, `supporting`, `superseded`, `historical`, `duplicate`, `alternative`) |
+| `relation_group` | array of slugs | — | — | Filter by relation group taxonomy (single group slug such as `g-80`) |
 | `limit` | integer | — | `10` | Max results (1–50) |
 
 ### Response
@@ -93,6 +97,8 @@ Retrieve a single memory entry by ID with full content.
   "repo": ["unc-wilson"],
   "package": [],
   "topic": ["wordpress", "blocks"],
+  "relation_role": ["canonical"],
+  "relation_group": ["g-80"],
   "summary": "WordPress blocks don't support hover states natively...",
   "keywords": ["hover", "css", "custom-properties"],
   "source_url": "",
@@ -174,6 +180,8 @@ Save a new memory entry.
 | `agent` | string | — | Agent slug (see Agent Authorship below) |
 | `repo` | array of slugs | — | Associated repositories |
 | `package` | array of slugs | — | Associated packages |
+| `relation_role` | array of slugs | — | Relation role taxonomy slugs. Single value enforced. Allowed: `canonical`, `companion`, `supporting`, `superseded`, `historical`, `duplicate`, `alternative`. |
+| `relation_group` | array of slugs | — | Relation group taxonomy slugs. Single value enforced. Group terms are auto-created. |
 | `symbol_type` | array of slugs | — | Symbol type classification |
 | `symbol_name` | string | — | Symbol name (function, class, hook, etc.) |
 | `source_path` | string | — | File path |
@@ -200,6 +208,8 @@ Returns the created entry in full `get-entry` shape with HTTP 201.
     "summary": "WordPress blocks don't support hover states natively. Store hover values as separate block attributes, write them as CSS custom properties at render time, and map those vars to :hover rules in compiled CSS.",
     "topic": ["wordpress", "blocks"],
     "repo": ["unc-wilson"],
+    "relation_role": ["canonical"],
+    "relation_group": ["g-80"],
     "keywords": ["hover", "focus", "css", "custom-properties", "block-styles"],
     "agent": "claude-sonnet-4-6"
   }
@@ -229,6 +239,8 @@ Update fields on an existing memory entry. Only supplied fields are changed.
 ### Response
 
 Returns the updated entry in full `get-entry` shape.
+
+> **Relation model note:** relationship semantics are cluster-based in v1 (role + group taxonomies), not explicit per-edge graph links.
 
 ### Example
 

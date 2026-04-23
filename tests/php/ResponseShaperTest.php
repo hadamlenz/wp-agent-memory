@@ -84,4 +84,25 @@ final class ResponseShaperTest extends TestCase {
 
         $this->assertSame( 'Editor content fallback', $result['summary'] );
     }
+
+    /**
+     * Full entry payload includes relation taxonomy fields.
+     */
+    public function test_entry_result_includes_relation_fields(): void {
+        $candidate = array(
+            'id'             => 98,
+            'title'          => 'Companion Entry',
+            'topic'          => array( 'wordpress' ),
+            'relation_role'  => array( 'companion' ),
+            'relation_group' => array( 'g-80' ),
+            'excerpt'        => 'Summary text',
+            'content'        => 'Content',
+            'permalink'      => 'https://example.test/entry/98',
+        );
+
+        $result = Response_Shaper::entry_result( $candidate );
+
+        $this->assertSame( array( 'companion' ), $result['relation_role'] );
+        $this->assertSame( array( 'g-80' ), $result['relation_group'] );
+    }
 }

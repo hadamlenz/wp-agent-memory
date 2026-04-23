@@ -106,6 +106,8 @@ class Response_Shaper {
             'repo'        => (array) ( $candidate['repo'] ?? array() ),
             'package'     => (array) ( $candidate['package'] ?? array() ),
             'topic'       => (array) ( $candidate['topic'] ?? array() ),
+            'relation_role'  => (array) ( $candidate['relation_role'] ?? array() ),
+            'relation_group' => (array) ( $candidate['relation_group'] ?? array() ),
             'summary'     => (string) ( $candidate['excerpt'] ?? '' ),
             'keywords'    => (array) ( $candidate['keywords'] ?? array() ),
             'source_url'  => (string) ( $candidate['source_url'] ?? '' ),

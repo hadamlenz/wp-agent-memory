@@ -124,7 +124,9 @@ class Search_Service {
             (array) ( $candidate['repo'] ?? array() ),
             (array) ( $candidate['package'] ?? array() ),
             (array) ( $candidate['topic'] ?? array() ),
-            (array) ( $candidate['symbol_type'] ?? array() )
+            (array) ( $candidate['symbol_type'] ?? array() ),
+            (array) ( $candidate['relation_role'] ?? array() ),
+            (array) ( $candidate['relation_group'] ?? array() )
         );
         $terms     = self::normalize_query( implode( ' ', $terms_raw ) );
 
@@ -190,7 +192,9 @@ class Search_Service {
         $pack_filter   = self::parse_filter_values( $params['package'] ?? array() );
         $type_filter   = self::parse_filter_values( $params['symbol_type'] ?? array() );
         $topic_filter  = self::parse_filter_values( $params['topic'] ?? array() );
-        $cache_key     = $this->build_cache_key( array( $query, $limit, $repo_filter, $pack_filter, $type_filter, $topic_filter ) );
+        $role_filter   = self::parse_filter_values( $params['relation_role'] ?? array() );
+        $group_filter  = self::parse_filter_values( $params['relation_group'] ?? array() );
+        $cache_key     = $this->build_cache_key( array( $query, $limit, $repo_filter, $pack_filter, $type_filter, $topic_filter, $role_filter, $group_filter ) );
         $cached_result = get_transient( $cache_key );
 
         if ( is_array( $cached_result ) ) {
@@ -242,6 +246,22 @@ class Search_Service {
                 'taxonomy' => 'memory_topic',
                 'field'    => 'slug',
                 'terms'    => $topic_filter,
+            );
+        }
+
+        if ( ! empty( $role_filter ) ) {
+            $tax_query[] = array(
+                'taxonomy' => 'memory_relation_role',
+                'field'    => 'slug',
+                'terms'    => $role_filter,
+            );
+        }
+
+        if ( ! empty( $group_filter ) ) {
+            $tax_query[] = array(
+                'taxonomy' => 'memory_relation_group',
+                'field'    => 'slug',
+                'terms'    => $group_filter,
             );
         }
 
@@ -400,6 +420,8 @@ class Search_Service {
             'package'     => $this->term_slugs( $id, 'memory_package' ),
             'topic'       => $this->term_slugs( $id, 'memory_topic' ),
             'symbol_type' => $this->term_slugs( $id, 'memory_symbol_type' ),
+            'relation_role'  => $this->term_slugs( $id, 'memory_relation_role' ),
+            'relation_group' => $this->term_slugs( $id, 'memory_relation_group' ),
             'modified_gmt'=> $post->post_modified_gmt,
             'post_author' => (int) $post->post_author,
         );

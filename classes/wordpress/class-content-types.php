@@ -7,6 +7,7 @@
 
 namespace WPAM\WordPress;
 
+use WPAM\WordPress\Memory\Relation_Helper;
 use WPAM\WordPress\Memory\Search_Service;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -24,6 +25,8 @@ class Content_Types {
         'memory_package'     => 'Package',
         'memory_topic'       => 'Topic',
         'memory_symbol_type' => 'Symbol Type',
+        'memory_relation_role'  => 'Relation Role',
+        'memory_relation_group' => 'Relation Group',
     );
 
     /**
@@ -32,8 +35,10 @@ class Content_Types {
     public function register(): void {
         $this->register_post_type();
         $this->register_taxonomies();
+        $this->seed_locked_relation_roles();
         $this->register_meta();
         $this->register_cache_invalidation_hooks();
+        $this->maybe_run_relation_taxonomy_backfill();
     }
 
     /**
@@ -81,9 +86,11 @@ class Content_Types {
     }
 
     /**
-     * Register filter taxonomies for repo/package/topic/symbol type dimensions.
+     * Register filter taxonomies for memory dimensions, including relation role/group.
      */
     private function register_taxonomies(): void {
+        add_filter( 'pre_insert_term', array( $this, 'validate_locked_relation_role_term' ), 10, 2 );
+
         foreach ( $this->taxonomies as $taxonomy => $label ) {
             register_taxonomy(
                 $taxonomy,
@@ -108,6 +115,107 @@ class Content_Types {
                 )
             );
         }
+    }
+
+    /**
+     * Block creation of unknown relation role terms.
+     *
+     * @param mixed  $term     Term name being inserted.
+     * @param string $taxonomy Target taxonomy.
+     *
+     * @return mixed
+     */
+    public function validate_locked_relation_role_term( $term, string $taxonomy ) {
+        if ( Relation_Helper::ROLE_TAXONOMY !== $taxonomy ) {
+            return $term;
+        }
+
+        $slug = sanitize_title( (string) $term );
+
+        if ( '' === $slug || in_array( $slug, Relation_Helper::role_slugs(), true ) ) {
+            return $term;
+        }
+
+        return new \WP_Error(
+            'wpam_invalid_relation_role',
+            __( 'memory_relation_role is locked. Use one of the supported relation roles.', 'wp-agent-memory' )
+        );
+    }
+
+    /**
+     * Ensure locked relation role terms exist.
+     */
+    private function seed_locked_relation_roles(): void {
+        foreach ( Relation_Helper::role_labels() as $slug => $label ) {
+            if ( get_term_by( 'slug', $slug, Relation_Helper::ROLE_TAXONOMY ) ) {
+                continue;
+            }
+
+            wp_insert_term(
+                $label,
+                Relation_Helper::ROLE_TAXONOMY,
+                array(
+                    'slug' => $slug,
+                )
+            );
+        }
+    }
+
+    /**
+     * One-time migration that backfills relation role/group taxonomies from prose status lines.
+     */
+    private function maybe_run_relation_taxonomy_backfill(): void {
+        if ( '1' === (string) get_option( 'wpam_relation_taxonomy_backfill_v1_done', '0' ) ) {
+            return;
+        }
+
+        $entries = get_posts(
+            array(
+                'post_type'      => 'memory_entry',
+                'post_status'    => 'publish',
+                'posts_per_page' => -1,
+                'no_found_rows'  => true,
+                'orderby'        => 'ID',
+                'order'          => 'ASC',
+            )
+        );
+
+        foreach ( $entries as $entry ) {
+            if ( ! $entry instanceof \WP_Post ) {
+                continue;
+            }
+
+            $target_id = Relation_Helper::extract_companion_target_id( $entry->post_excerpt . "\n" . $entry->post_content );
+            if ( $target_id <= 0 ) {
+                continue;
+            }
+
+            $group_slug = 'g-' . $target_id;
+
+            wp_set_post_terms( (int) $entry->ID, array( 'companion' ), Relation_Helper::ROLE_TAXONOMY, false );
+            wp_set_post_terms( (int) $entry->ID, array( $group_slug ), Relation_Helper::GROUP_TAXONOMY, false );
+
+            $target = get_post( $target_id );
+            if ( ! $target instanceof \WP_Post || 'memory_entry' !== $target->post_type || 'publish' !== $target->post_status ) {
+                continue;
+            }
+
+            wp_set_post_terms( $target_id, array( $group_slug ), Relation_Helper::GROUP_TAXONOMY, false );
+
+            $target_roles = wp_get_post_terms(
+                $target_id,
+                Relation_Helper::ROLE_TAXONOMY,
+                array(
+                    'fields' => 'slugs',
+                )
+            );
+
+            if ( is_wp_error( $target_roles ) || ! is_array( $target_roles ) || empty( $target_roles ) ) {
+                wp_set_post_terms( $target_id, array( 'canonical' ), Relation_Helper::ROLE_TAXONOMY, false );
+            }
+        }
+
+        update_option( 'wpam_relation_taxonomy_backfill_v1_done', '1', false );
     }
 
     /**

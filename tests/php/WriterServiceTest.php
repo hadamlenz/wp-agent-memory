@@ -48,6 +48,40 @@ final class WriterServiceTest extends TestCase {
     }
 
     /**
+     * create() must reject relation_role when the cardinality is greater than one.
+     */
+    public function test_create_rejects_multiple_relation_roles(): void {
+        $result = $this->service->create(
+            array(
+                'title'         => 'A title',
+                'summary'       => 'A summary',
+                'topic'         => array( 'general' ),
+                'relation_role' => array( 'canonical', 'companion' ),
+            )
+        );
+
+        $this->assertArrayHasKey( 'error', $result );
+        $this->assertStringContainsString( 'relation_role', $result['error'] );
+    }
+
+    /**
+     * create() must reject unknown relation_role values.
+     */
+    public function test_create_rejects_unknown_relation_role(): void {
+        $result = $this->service->create(
+            array(
+                'title'         => 'A title',
+                'summary'       => 'A summary',
+                'topic'         => array( 'general' ),
+                'relation_role' => array( 'not-real' ),
+            )
+        );
+
+        $this->assertArrayHasKey( 'error', $result );
+        $this->assertStringContainsString( 'unsupported', $result['error'] );
+    }
+
+    /**
      * update() must return an error for a post ID that does not exist.
      * (get_post() is stubbed to return null in bootstrap.php.)
      */

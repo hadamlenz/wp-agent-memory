@@ -35,6 +35,8 @@ Base path: `/wp-json/agent-memory/v1`
 
 **Auth:** HTTP Basic (WordPress Application Password). See [Authentication](#authentication) below.
 
+**Relationship model (v1):** relation metadata is cluster-based taxonomy data (`relation_role` + `relation_group`), not explicit per-edge links. A one-time migration backfills `Status: Companion to [#<id> ...]` prose into these taxonomies.
+
 ### Search
 
 `GET /search`
@@ -46,6 +48,8 @@ Base path: `/wp-json/agent-memory/v1`
 | `repo` | array of slugs | Filter by repository |
 | `package` | array of slugs | Filter by package |
 | `symbol_type` | array of slugs | Filter by symbol type |
+| `relation_role` | array of slugs | Filter by relation role taxonomy |
+| `relation_group` | array of slugs | Filter by relation group taxonomy |
 | `limit` | integer | Max results (1–50, default 10) |
 
 **Search result shape:**
@@ -89,6 +93,8 @@ Base path: `/wp-json/agent-memory/v1`
 | `agent` | string | — | Agent slug (see Agent Authorship) |
 | `repo` | array of slugs | — | Associated repositories |
 | `package` | array of slugs | — | Associated packages |
+| `relation_role` | array of slugs | — | Relation role taxonomy slugs (single value enforced) |
+| `relation_group` | array of slugs | — | Relation group taxonomy slugs (single value enforced) |
 | `symbol_type` | array of slugs | — | Symbol type classification |
 | `symbol_name` | string | — | Symbol name |
 | `source_path` | string | — | File path |
@@ -96,6 +102,8 @@ Base path: `/wp-json/agent-memory/v1`
 | `source_url` | string | — | Source URL |
 | `keywords` | array of strings | — | Additional search keywords |
 | `rank_bias` | float | — | Ranking weight adjustment |
+
+**Relation model (v1):** relationships are cluster-based taxonomy metadata (`relation_role` + `relation_group`), not explicit edge records.
 
 ### Update Entry
 

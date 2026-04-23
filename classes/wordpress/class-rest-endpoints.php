@@ -309,6 +309,12 @@ class Rest_Endpoints {
             'topic'       => array(
                 'type' => 'array',
             ),
+            'relation_role'  => array(
+                'type' => 'array',
+            ),
+            'relation_group' => array(
+                'type' => 'array',
+            ),
             'limit'       => array(
                 'type'              => 'integer',
                 'default'           => 10,

@@ -40,6 +40,13 @@ class Writer_Service {
             return array( 'error' => 'topic must be a non-empty array of slugs.' );
         }
 
+        $relation_input = $this->validate_relation_inputs( $input );
+        if ( isset( $relation_input['error'] ) ) {
+            return array( 'error' => $relation_input['error'] );
+        }
+
+        $input = array_merge( $input, $relation_input );
+
         $post_data = array(
             'post_type'    => 'memory_entry',
             'post_status'  => 'publish',
@@ -82,6 +89,13 @@ class Writer_Service {
         if ( null === $post || 'memory_entry' !== $post->post_type ) {
             return array( 'error' => 'Memory entry not found.' );
         }
+
+        $relation_input = $this->validate_relation_inputs( $input );
+        if ( isset( $relation_input['error'] ) ) {
+            return array( 'error' => $relation_input['error'] );
+        }
+
+        $input = array_merge( $input, $relation_input );
 
         $post_fields = array( 'ID' => $id );
 
@@ -161,27 +175,55 @@ class Writer_Service {
     }
 
     /**
-     * Assign taxonomy terms from input, auto-creating slugs that don't exist yet.
+     * Assign taxonomy terms from input with per-taxonomy auto-create behavior.
      *
      * @param int                  $post_id
      * @param array<string, mixed> $input
      */
     private function apply_taxonomies( int $post_id, array $input ): void {
         $map = array(
-            'repo'        => 'memory_repo',
-            'package'     => 'memory_package',
-            'topic'       => 'memory_topic',
-            'symbol_type' => 'memory_symbol_type',
+            'repo'           => array(
+                'taxonomy'    => 'memory_repo',
+                'auto_create' => true,
+            ),
+            'package'        => array(
+                'taxonomy'    => 'memory_package',
+                'auto_create' => true,
+            ),
+            'topic'          => array(
+                'taxonomy'    => 'memory_topic',
+                'auto_create' => true,
+            ),
+            'symbol_type'    => array(
+                'taxonomy'    => 'memory_symbol_type',
+                'auto_create' => true,
+            ),
+            'relation_role'  => array(
+                'taxonomy'    => Relation_Helper::ROLE_TAXONOMY,
+                'auto_create' => false,
+            ),
+            'relation_group' => array(
+                'taxonomy'    => Relation_Helper::GROUP_TAXONOMY,
+                'auto_create' => true,
+            ),
         );
 
-        foreach ( $map as $input_key => $taxonomy ) {
+        foreach ( $map as $input_key => $taxonomy_config ) {
             if ( ! isset( $input[ $input_key ] ) || ! is_array( $input[ $input_key ] ) ) {
+                continue;
+            }
+
+            $taxonomy = (string) ( $taxonomy_config['taxonomy'] ?? '' );
+            if ( '' === $taxonomy ) {
                 continue;
             }
 
             $term_ids = array();
             foreach ( $input[ $input_key ] as $slug ) {
-                $term_id = $this->resolve_or_create_term( $taxonomy, (string) $slug );
+                $term_id = ! empty( $taxonomy_config['auto_create'] )
+                    ? $this->resolve_or_create_term( $taxonomy, (string) $slug )
+                    : $this->resolve_existing_term( $taxonomy, (string) $slug );
+
                 if ( $term_id > 0 ) {
                     $term_ids[] = $term_id;
                 }
@@ -189,6 +231,37 @@ class Writer_Service {
 
             wp_set_post_terms( $post_id, $term_ids, $taxonomy );
         }
+    }
+
+    /**
+     * Validate and normalize relation taxonomy inputs if they are present.
+     *
+     * @param array<string, mixed> $input
+     *
+     * @return array<string, mixed>
+     */
+    private function validate_relation_inputs( array $input ): array {
+        $normalized = array();
+
+        if ( array_key_exists( 'relation_role', $input ) ) {
+            $role = Relation_Helper::validate_relation_role_input( $input['relation_role'] );
+            if ( isset( $role['error'] ) ) {
+                return array( 'error' => $role['error'] );
+            }
+
+            $normalized['relation_role'] = $role['slugs'] ?? array();
+        }
+
+        if ( array_key_exists( 'relation_group', $input ) ) {
+            $group = Relation_Helper::validate_relation_group_input( $input['relation_group'] );
+            if ( isset( $group['error'] ) ) {
+                return array( 'error' => $group['error'] );
+            }
+
+            $normalized['relation_group'] = $group['slugs'] ?? array();
+        }
+
+        return $normalized;
     }
 
     /**
@@ -209,6 +282,20 @@ class Writer_Service {
         $result = wp_insert_term( $slug, $taxonomy );
 
         return is_wp_error( $result ) ? 0 : (int) $result['term_id'];
+    }
+
+    /**
+     * Resolve the term ID for an existing taxonomy term slug.
+     *
+     * @param string $taxonomy
+     * @param string $slug
+     *
+     * @return int
+     */
+    private function resolve_existing_term( string $taxonomy, string $slug ): int {
+        $existing = get_term_by( 'slug', $slug, $taxonomy );
+
+        return $existing instanceof \WP_Term ? (int) $existing->term_id : 0;
     }
 
     /**
