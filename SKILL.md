@@ -6,7 +6,12 @@ description: Working with the wp-agent-memory REST API — endpoints, field sche
 ## Agent Workflow
 
 ### At the start of every task
+
+**When working in the `wp-agent-memory` repository:** Fetch entry #264 (`agent-memory/get-entry`) first for plugin orientation — content model, file map, architectural decisions, and available APIs. Then search.
+
 Search before responding. Identify 1–3 topic keywords from the user's request and call `agent-memory/search` with `params.query`.
+
+**When debugging:** run a second search after you identify the root cause, using symptom or error terms (e.g. "binding value empty frontend", "markdown not rendering"). The first search catches patterns; the second catches specific gotchas.
 
 ### At the end of a task
 If a retrieved memory genuinely shaped your approach or provided the correct solution, call `agent-memory/mark-useful` with `params.id` (from the search result), `params.agent` (your model slug), and an optional `params.context` note.
@@ -100,7 +105,6 @@ Base path: `/wp-json/agent-memory/v1`
 | `source_path` | string | — | File path |
 | `source_ref` | string | — | Git ref or commit SHA |
 | `source_url` | string | — | Source URL |
-| `keywords` | array of strings | — | Additional search keywords |
 | `rank_bias` | float | — | Ranking weight adjustment |
 
 **Relation model (v1):** relationships are cluster-based taxonomy metadata (`relation_role` + `relation_group`), not explicit edge records.
@@ -140,9 +144,7 @@ Returns `{"marked": true, "id": <id>, "useful_count": <n>}`.
 
 Send **raw characters** in `content` — never HTML entities. Write `=>` not `=&gt;`, `<` not `&lt;`. The plugin stores and retrieves content so agents always see the original characters back.
 
-Content is stored as a `wpam/markdown` Gutenberg block internally. Send plain Markdown — the plugin wraps and unwraps it transparently. Agents always receive clean Markdown back.
-
-Do not use JSON unicode escapes (e.g. `\u002d`) in content text. Write the actual character (`-`). Unicode escapes in block attribute JSON are decoded by the block editor during re-serialization, which causes a mismatch with stored content and triggers block validation errors.
+Send plain Markdown — the plugin stores and returns it as-is. Do not use JSON unicode escapes (e.g. `\u002d`); write the actual character (`-`).
 
 ## Agent Authorship
 

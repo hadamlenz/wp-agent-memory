@@ -106,6 +106,26 @@ This is a cluster-based model, not an explicit edge graph. Write APIs accept `re
 
 On first load after upgrade, a one-time backfill scans existing entries for `Status: Companion to [#<id> ...]` and seeds role/group terms automatically. Existing summary/content text is left unchanged.
 
+## Admin Features
+
+### Memory Stats meta box
+
+Each `memory_entry` edit screen shows a **Memory Stats** sidebar meta box with read-only values for `useful_count`, `usage_count`, and `last_used_gmt`. These fields are managed exclusively by the plugin and are not editable through the Custom Fields UI.
+
+### Block Bindings source (`wpam/entry-stats`)
+
+The plugin registers a server-side block binding source `wpam/entry-stats` and the corresponding JavaScript source via `@wordpress/blocks`. This allows block templates and patterns to bind paragraph (or other) blocks to `useful_count`, `usage_count`, or `last_used_gmt` for any `memory_entry` post:
+
+```html
+<!-- wp:paragraph {"metadata":{"bindings":{"content":{"source":"wpam/entry-stats","args":{"key":"useful_count"}}}}} -->
+<p></p>
+<!-- /wp:paragraph -->
+```
+
+Bindings are read-only (`canUserEditValue` returns `false`). The `getFieldsList()` method supports the field picker UI in WordPress 6.9+. The binding script is built from `src/block-bindings.js` into `build/block-bindings.js` via `npm run build`.
+
+---
+
 ## Reference
 
 - [docs/abilities.md](docs/abilities.md) — full ability and REST endpoint reference, including `search-wp-docs`, `fetch-wp-doc`, and `search-github-issues`

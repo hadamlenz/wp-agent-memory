@@ -1,6 +1,6 @@
 <?php
 /**
- * Server-side render for the wpam/markdown block.
+ * Markdown rendering for memory_entry posts via the_content filter.
  *
  * @package WPAM
  */
@@ -20,30 +20,41 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 class Markdown_Block {
+
     /**
-     * Register the wpam/markdown dynamic block.
+     * Hook the content filter. No block type is registered — content is plain markdown in post_content.
      */
     public function register(): void {
-        register_block_type(
-            dirname( __DIR__, 2 ) . '/blocks/markdown',
-            array(
-                'render_callback' => array( $this, 'render' ),
-            )
-        );
+        // Priority 1 — run before wpautop (10) and wptexturize (10).
+        add_filter( 'the_content', array( $this, 'render_content' ), 1 );
     }
 
     /**
-     * Render Markdown inner content as syntax-highlighted HTML.
+     * Convert raw markdown to HTML for memory_entry posts only.
+     * Removes wpautop and wptexturize so they don't mangle markdown before CommonMark runs.
      *
-     * @param array<string, mixed> $attributes Block attributes (includes 'content' when called via ServerSideRender).
-     * @param string               $content    Raw Markdown stored between block comment tags (empty during editor preview).
-     *
+     * @param string $content Raw post content.
      * @return string
      */
-    public function render( array $attributes, string $content ): string {
-        // $content is populated when rendering saved post content; $attributes['content']
-        // is used when ServerSideRender calls the REST block-renderer from the editor.
-        $markdown = trim( $content !== '' ? $content : ( $attributes['content'] ?? '' ) );
+    public function render_content( string $content ): string {
+        if ( get_post_type() !== 'memory_entry' ) {
+            return $content;
+        }
+
+        remove_filter( 'the_content', 'wpautop' );
+        remove_filter( 'the_content', 'wptexturize' );
+
+        return $this->convert( $content );
+    }
+
+    /**
+     * Run markdown through CommonMark with syntax highlighting.
+     *
+     * @param string $markdown Raw markdown string.
+     * @return string Rendered HTML.
+     */
+    public function convert( string $markdown ): string {
+        $markdown = trim( $markdown );
 
         if ( '' === $markdown ) {
             return '';
@@ -63,7 +74,7 @@ class Markdown_Block {
     }
 
     /**
-     * Enqueue the highlight.php GitHub CSS theme for frontend and block editor.
+     * Enqueue the highlight.php GitHub CSS theme for frontend rendering.
      */
     public function enqueue_styles(): void {
         $css_path = WPAM_PLUGIN_DIR . 'vendor/scrivo/highlight.php/styles/github.css';

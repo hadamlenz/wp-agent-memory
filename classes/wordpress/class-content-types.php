@@ -45,6 +45,8 @@ class Content_Types {
      * Register the memory_entry post type.
      */
     private function register_post_type(): void {
+        add_filter( 'use_block_editor_for_post_type', array( $this, 'disable_block_editor' ), 10, 2 );
+
         register_post_type(
             'memory_entry',
             array(
@@ -81,6 +83,53 @@ class Content_Types {
                 'show_in_admin_bar'   => true,
                 'show_in_nav_menus'   => false,
                 'exclude_from_search' => false,
+            )
+        );
+    }
+
+    /**
+     * Disable the block editor for memory_entry posts.
+     *
+     * @param bool   $use_block_editor Whether to use the block editor.
+     * @param string $post_type        The post type slug.
+     * @return bool
+     */
+    public function disable_block_editor( bool $use_block_editor, string $post_type ): bool {
+        if ( 'memory_entry' === $post_type ) {
+            return false;
+        }
+        return $use_block_editor;
+    }
+
+    /**
+     * Register the wpam/entry-stats block binding source.
+     * Allows paragraph (and other) blocks in templates to bind to useful_count,
+     * usage_count, and last_used_gmt for any memory_entry post.
+     */
+    public function register_block_bindings(): void {
+        if ( ! function_exists( 'register_block_bindings_source' ) ) {
+            return;
+        }
+
+        register_block_bindings_source(
+            'wpam/entry-stats',
+            array(
+                'label'              => __( 'Memory Entry Stats', 'wp-agent-memory' ),
+                'uses_context'       => array( 'postId' ),
+                'get_value_callback' => static function ( array $source_args, $block_instance ): mixed {
+                    $post_id = $block_instance->context['postId'] ?? 0;
+                    if ( ! $post_id ) {
+                        $post_id = get_the_ID();
+                    }
+
+                    $key = $source_args['key'] ?? '';
+
+                    if ( ! $post_id || ! in_array( $key, array( 'useful_count', 'usage_count', 'last_used_gmt' ), true ) ) {
+                        return null;
+                    }
+
+                    return get_post_meta( (int) $post_id, $key, true );
+                },
             )
         );
     }
@@ -277,17 +326,6 @@ class Content_Types {
 
         register_post_meta(
             'memory_entry',
-            'keywords',
-            array_merge(
-                $shared_args,
-                array(
-                    'sanitize_callback' => array( $this, 'sanitize_keywords' ),
-                )
-            )
-        );
-
-        register_post_meta(
-            'memory_entry',
             'rank_bias',
             array(
                 'single'        => true,
@@ -304,14 +342,14 @@ class Content_Types {
         );
 
         // usage_count, useful_count, last_used_gmt are managed exclusively by Search_Service and
-        // the mark-useful ability. auth_callback => '__return_false' blocks direct REST meta writes
-        // so agents cannot manipulate ranking signals by writing to these fields themselves.
+        // the mark-useful ability. auth_callback => '__return_false' blocks REST writes while
+        // show_in_rest => true exposes the values for block bindings and the editor.
         register_post_meta(
             'memory_entry',
             'usage_count',
             array(
                 'single'            => true,
-                'show_in_rest'      => false,
+                'show_in_rest'      => true,
                 'type'              => 'integer',
                 'default'           => 0,
                 'auth_callback'     => '__return_false',
@@ -324,7 +362,7 @@ class Content_Types {
             'useful_count',
             array(
                 'single'            => true,
-                'show_in_rest'      => false,
+                'show_in_rest'      => true,
                 'type'              => 'integer',
                 'default'           => 0,
                 'auth_callback'     => '__return_false',
@@ -337,27 +375,13 @@ class Content_Types {
             'last_used_gmt',
             array(
                 'single'            => true,
-                'show_in_rest'      => false,
+                'show_in_rest'      => true,
                 'type'              => 'string',
                 'default'           => '',
                 'auth_callback'     => '__return_false',
                 'sanitize_callback' => 'sanitize_text_field',
             )
         );
-    }
-
-    /**
-     * Normalize stored keywords into a comma-separated sanitized list.
-     *
-     * @param mixed $value Raw meta value.
-     *
-     * @return string
-     */
-    public function sanitize_keywords( $value ): string {
-        $value = is_string( $value ) ? $value : '';
-        $parts = array_filter( array_map( 'trim', explode( ',', $value ) ) );
-
-        return implode( ',', array_map( 'sanitize_text_field', $parts ) );
     }
 
     /**

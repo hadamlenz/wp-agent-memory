@@ -31,7 +31,6 @@ final class SearchServiceTest extends TestCase {
             'summary'     => 'Hook details',
             'excerpt'     => '',
             'content'     => '',
-            'keywords'    => array( 'editor.BlockEdit' ),
             'rank_bias'   => 0,
         );
 
@@ -45,7 +44,6 @@ final class SearchServiceTest extends TestCase {
             'summary'     => '',
             'excerpt'     => '',
             'content'     => '',
-            'keywords'    => array(),
             'rank_bias'   => 0,
         );
 
@@ -86,7 +84,6 @@ final class SearchServiceTest extends TestCase {
             'summary'     => '',
             'excerpt'     => 'Companion entry guidance',
             'content'     => '',
-            'keywords'    => array(),
             'rank_bias'   => 0,
         );
 

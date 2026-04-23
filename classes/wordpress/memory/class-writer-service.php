@@ -165,10 +165,6 @@ class Writer_Service {
             update_post_meta( $post_id, 'source_url', esc_url_raw( $input['source_url'] ) );
         }
 
-        if ( isset( $input['keywords'] ) && is_array( $input['keywords'] ) ) {
-            update_post_meta( $post_id, 'keywords', $this->sanitize_keywords( $input['keywords'] ) );
-        }
-
         if ( isset( $input['rank_bias'] ) ) {
             update_post_meta( $post_id, 'rank_bias', (float) $input['rank_bias'] );
         }
@@ -181,6 +177,13 @@ class Writer_Service {
      * @param array<string, mixed> $input
      */
     private function apply_taxonomies( int $post_id, array $input ): void {
+        if ( ! empty( $input['keywords'] ) && is_array( $input['keywords'] ) ) {
+            $input['topic'] = array_unique( array_merge(
+                (array) ( $input['topic'] ?? array() ),
+                $input['keywords']
+            ) );
+        }
+
         $map = array(
             'repo'           => array(
                 'taxonomy'    => 'memory_repo',
@@ -323,37 +326,14 @@ class Writer_Service {
     }
 
     /**
-     * Wrap plain Markdown in a wpam/markdown block comment.
-     * Content that already starts with block markup is stored as-is.
+     * Normalize raw Markdown for storage in post_content.
      *
      * @param string $content Raw content from input.
      *
      * @return string
      */
     private function wrap_content( string $content ): string {
-        $content = trim( $content );
-
-        if ( '' === $content ) {
-            return '';
-        }
-
-        if ( str_starts_with( $content, '<!-- wp:' ) ) {
-            return $content;
-        }
-
-        return "<!-- wp:wpam/markdown -->\n{$content}\n<!-- /wp:wpam/markdown -->";
+        return trim( $content );
     }
 
-    /**
-     * Normalize a keywords array into a comma-separated sanitized string.
-     *
-     * @param string[] $keywords
-     *
-     * @return string
-     */
-    public function sanitize_keywords( array $keywords ): string {
-        $parts = array_filter( array_map( 'trim', $keywords ) );
-
-        return implode( ',', array_map( 'sanitize_text_field', $parts ) );
-    }
 }

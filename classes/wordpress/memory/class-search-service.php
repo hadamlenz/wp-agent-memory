@@ -105,8 +105,7 @@ class Search_Service {
      * 1) exact/partial symbol_name
      * 2) title
      * 3) taxonomy terms
-     * 4) keywords and summary
-     * 5) excerpt/content
+     * 4) excerpt/content
      *
      * @param array<string, mixed> $candidate Candidate fields.
      * @param string               $query     Normalized search query.
@@ -117,7 +116,6 @@ class Search_Service {
         $query     = self::normalize_query( $query );
         $symbol    = self::normalize_query( (string) ( $candidate['symbol_name'] ?? '' ) );
         $title     = self::normalize_query( (string) ( $candidate['title'] ?? '' ) );
-        $keywords  = self::normalize_query( implode( ' ', (array) ( $candidate['keywords'] ?? array() ) ) );
         $excerpt   = self::normalize_query( (string) ( $candidate['excerpt'] ?? '' ) );
         $content   = self::normalize_query( wp_strip_all_tags( (string) ( $candidate['content'] ?? '' ) ) );
         $terms_raw = array_merge(
@@ -147,10 +145,6 @@ class Search_Service {
 
             if ( '' !== $terms && str_contains( $terms, $query ) ) {
                 $score += 130;
-            }
-
-            if ( '' !== $keywords && str_contains( $keywords, $query ) ) {
-                $score += 90;
             }
 
             if ( '' !== $excerpt && str_contains( $excerpt, $query ) ) {
@@ -399,7 +393,6 @@ class Search_Service {
     private function build_candidate( WP_Post $post ): array {
         $id          = (int) $post->ID;
         $symbol_name = (string) get_post_meta( $id, 'symbol_name', true );
-        $keywords    = (string) get_post_meta( $id, 'keywords', true );
 
         return array(
             'id'          => $id,
@@ -410,7 +403,6 @@ class Search_Service {
             'source_url'  => (string) get_post_meta( $id, 'source_url', true ),
             'source_path' => (string) get_post_meta( $id, 'source_path', true ),
             'source_ref'  => (string) get_post_meta( $id, 'source_ref', true ),
-            'keywords'    => array_values( array_filter( array_map( 'trim', explode( ',', $keywords ) ) ) ),
             'rank_bias'    => (float) get_post_meta( $id, 'rank_bias', true ),
             'usage_count'  => (int) get_post_meta( $id, 'usage_count', true ),
             'useful_count' => (int) get_post_meta( $id, 'useful_count', true ),

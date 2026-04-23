@@ -11,6 +11,7 @@ use WPAM\WordPress\External\External_Sources_Service;
 use WPAM\WordPress\Memory\Search_Service;
 use WPAM\WordPress\Memory\Writer_Service;
 use WPAM\WordPress\Markdown_Block;
+use WPAM\WordPress\Editor;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -42,6 +43,7 @@ class Core {
     private External_Sources_Service $external_sources_service;
     /** @var External_Abilities */
     private External_Abilities $external_abilities;
+    private Editor $editor;
 
     /**
      * Build service graph and register hooks.
@@ -56,21 +58,49 @@ class Core {
         $this->settings                 = new Settings();
         $this->external_sources_service = new External_Sources_Service();
         $this->external_abilities       = new External_Abilities( $this->external_sources_service );
+        $this->editor = new Editor();
 
         add_action( 'init', static function (): void {
             load_plugin_textdomain( 'wp-agent-memory', false, dirname( plugin_basename( WPAM_PLUGIN_DIR . 'wp-agent-memory.php' ) ) . '/languages' );
         } );
         add_action( 'init', array( $this->content_types, 'register' ) );
+        add_action( 'init', array( $this->content_types, 'register_block_bindings' ) );
         add_action( 'init', array( $this->markdown_block, 'register' ) );
         add_action( 'enqueue_block_assets', array( $this->markdown_block, 'enqueue_styles' ) );
+        add_action( 'enqueue_block_editor_assets', array( $this, 'enqueue_editor_scripts' ) );
         add_action( 'rest_api_init', array( $this->rest_endpoints, 'register_routes' ) );
         add_action( 'wp_abilities_api_categories_init', array( $this->abilities, 'register_category' ) );
         add_action( 'wp_abilities_api_init', array( $this->abilities, 'register' ) );
         add_action( 'wp_abilities_api_init', array( $this->external_abilities, 'register' ) );
         add_action( 'admin_menu', array( $this->settings, 'register_menu' ) );
         add_action( 'admin_init', array( $this->settings, 'register_settings' ) );
+        add_action( 'admin_post_wpam_migrate_content', array( $this->settings, 'handle_migrate_content' ) );
+        add_action( 'admin_post_wpam_migrate_keywords_to_topic', array( $this->settings, 'handle_migrate_keywords_to_topic' ) );
         add_filter( 'manage_users_columns', array( $this->settings, 'add_memories_column' ) );
         add_filter( 'manage_users_custom_column', array( $this->settings, 'render_memories_column' ), 10, 3 );
+        add_filter( 'wp_editor_settings',  array( $this->editor, 'disable_tinymce'), 10, 2);
+        add_action( 'add_meta_boxes', array( $this->editor, 'register_stats_meta_box' ) );
+    }
+
+    /**
+     * Enqueue block editor scripts (block bindings source registration).
+     */
+    public function enqueue_editor_scripts(): void {
+        $asset_file = WPAM_PLUGIN_DIR . 'build/block-bindings.asset.php';
+
+        if ( ! file_exists( $asset_file ) ) {
+            return;
+        }
+
+        $asset = require $asset_file;
+
+        wp_enqueue_script(
+            'wpam-block-bindings',
+            WPAM_PLUGIN_URL . 'build/block-bindings.js',
+            $asset['dependencies'],
+            $asset['version'],
+            true
+        );
     }
 
     /**

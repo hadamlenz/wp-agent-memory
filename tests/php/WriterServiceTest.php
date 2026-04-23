@@ -92,17 +92,4 @@ final class WriterServiceTest extends TestCase {
         $this->assertStringContainsString( 'not found', $result['error'] );
     }
 
-    /**
-     * sanitize_keywords joins an array of strings into a comma-separated string.
-     */
-    public function test_sanitize_keywords_joins_array_to_csv(): void {
-        $this->assertSame( 'foo,bar,baz', $this->service->sanitize_keywords( array( 'foo', 'bar', 'baz' ) ) );
-    }
-
-    /**
-     * sanitize_keywords strips surrounding whitespace from each keyword.
-     */
-    public function test_sanitize_keywords_trims_whitespace(): void {
-        $this->assertSame( 'alpha,beta', $this->service->sanitize_keywords( array( '  alpha  ', '  beta' ) ) );
-    }
 }

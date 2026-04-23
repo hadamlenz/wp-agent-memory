@@ -39,3 +39,8 @@ spl_autoload_register( array( $autoloader, 'autoload' ) );
 
 // Boot singleton plugin core.
 WordPress\Core::get_instance();
+
+// Register WP-CLI commands when running in a CLI context.
+if ( defined( 'WP_CLI' ) && WP_CLI ) {
+    \WP_CLI::add_command( 'wpam', WordPress\CLI::class );
+}

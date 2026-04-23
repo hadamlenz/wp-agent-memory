@@ -109,7 +109,6 @@ class Response_Shaper {
             'relation_role'  => (array) ( $candidate['relation_role'] ?? array() ),
             'relation_group' => (array) ( $candidate['relation_group'] ?? array() ),
             'summary'     => (string) ( $candidate['excerpt'] ?? '' ),
-            'keywords'    => (array) ( $candidate['keywords'] ?? array() ),
             'source_url'  => (string) ( $candidate['source_url'] ?? '' ),
             'source_path' => (string) ( $candidate['source_path'] ?? '' ),
             'source_ref'  => (string) ( $candidate['source_ref'] ?? '' ),
@@ -131,11 +130,30 @@ class Response_Shaper {
      * @return string
      */
     public static function extract_content( string $post_content ): string {
+        // Self-closing JSON-attr format: <!-- wp:wpam/markdown {"content":"..."} /-->
+        $post_content = preg_replace_callback(
+            '/<!-- wp:wpam\/markdown (.+?) \/-->/s',
+            static function ( array $m ): string {
+                $attrs = json_decode( $m[1], true );
+                return is_array( $attrs ) ? (string) ( $attrs['content'] ?? '' ) : '';
+            },
+            $post_content
+        ) ?? $post_content;
+
+        // JSON-attr format with separate closing tag: <!-- wp:wpam/markdown {"content":"..."} --> ... <!-- /wp:wpam/markdown -->
+        $post_content = preg_replace_callback(
+            '/<!-- wp:wpam\/markdown (.+?) -->\s*<!-- \/wp:wpam\/markdown -->/s',
+            static function ( array $m ): string {
+                $attrs = json_decode( $m[1], true );
+                return is_array( $attrs ) ? (string) ( $attrs['content'] ?? '' ) : '';
+            },
+            $post_content
+        ) ?? $post_content;
+
+        // Old raw format: <!-- wp:wpam/markdown --> ... <!-- /wp:wpam/markdown -->
         return preg_replace_callback(
             '/<!-- wp:wpam\/markdown -->(.*?)<!-- \/wp:wpam\/markdown -->/s',
-            static function ( array $m ): string {
-                return trim( $m[1] );
-            },
+            static fn( array $m ): string => trim( $m[1] ),
             $post_content
         ) ?? $post_content;
     }

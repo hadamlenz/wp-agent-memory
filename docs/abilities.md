@@ -100,7 +100,6 @@ Retrieve a single memory entry by ID with full content.
   "relation_role": ["canonical"],
   "relation_group": ["g-80"],
   "summary": "WordPress blocks don't support hover states natively...",
-  "keywords": ["hover", "css", "custom-properties"],
   "source_url": "",
   "source_path": "",
   "source_ref": "",
@@ -187,7 +186,6 @@ Save a new memory entry.
 | `source_path` | string | — | File path |
 | `source_ref` | string | — | Git ref or commit SHA |
 | `source_url` | string | — | Source URL |
-| `keywords` | array of strings | — | Additional search keywords |
 | `rank_bias` | float | — | Manual ranking weight adjustment |
 
 ### Content encoding
@@ -206,11 +204,10 @@ Returns the created entry in full `get-entry` shape with HTTP 201.
   "parameters": {
     "title": "Hover Style System — CSS Custom Properties for Block Hover States",
     "summary": "WordPress blocks don't support hover states natively. Store hover values as separate block attributes, write them as CSS custom properties at render time, and map those vars to :hover rules in compiled CSS.",
-    "topic": ["wordpress", "blocks"],
+    "topic": ["wordpress", "blocks", "hover", "css", "custom-properties"],
     "repo": ["unc-wilson"],
     "relation_role": ["canonical"],
     "relation_group": ["g-80"],
-    "keywords": ["hover", "focus", "css", "custom-properties", "block-styles"],
     "agent": "claude-sonnet-4-6"
   }
 }
@@ -223,7 +220,7 @@ Returns the created entry in full `get-entry` shape with HTTP 201.
 Update fields on an existing memory entry. Only supplied fields are changed.
 
 **Say things like:**
-> "Update memory 42 — add 'render-callback' to the keywords."
+> "Update memory 42 — add 'render-callback' to the topics."
 > "We found a better approach; update that memory with the new solution."
 > "The source path changed — update entry 87 to reflect the new file location."
 
@@ -249,7 +246,7 @@ Returns the updated entry in full `get-entry` shape.
   "ability_name": "agent-memory/update-entry",
   "parameters": {
     "id": 42,
-    "keywords": ["hover", "focus", "css", "custom-properties", "block-styles", "render-callback"],
+    "topic": ["wordpress", "blocks", "hover", "css", "custom-properties", "render-callback"],
     "agent": "claude-sonnet-4-6"
   }
 }

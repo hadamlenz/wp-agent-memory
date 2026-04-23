@@ -3,8 +3,8 @@
     "version": "0.1.0",
     "private": true,
     "scripts": {
-        "build": "wp-scripts build blocks/markdown/src/index.js --output-path=blocks/markdown/build",
-        "start": "wp-scripts start blocks/markdown/src/index.js --output-path=blocks/markdown/build"
+        "build": "wp-scripts build src/block-bindings.js --output-path=build",
+        "start": "wp-scripts start src/block-bindings.js --output-path=build"
     },
     "devDependencies": {
         "@wordpress/scripts": "^30.0.0"

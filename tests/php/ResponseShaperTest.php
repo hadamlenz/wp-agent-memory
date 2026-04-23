@@ -105,4 +105,49 @@ final class ResponseShaperTest extends TestCase {
         $this->assertSame( array( 'companion' ), $result['relation_role'] );
         $this->assertSame( array( 'g-80' ), $result['relation_group'] );
     }
+
+    /**
+     * extract_content() must decode content from the JSON-attr block format.
+     * The JSON is written by serialize_block_attributes() which escapes '>' as '>'.
+     */
+    public function test_extract_content_handles_json_attr_format(): void {
+        $block = '<!-- wp:wpam/markdown {"content":"## Hello\n\nCode: `&&` and `>` chars"} -->' . "\n" .
+                 '<!-- /wp:wpam/markdown -->';
+
+        $this->assertSame(
+            "## Hello\n\nCode: `&&` and `>` chars",
+            Response_Shaper::extract_content( $block )
+        );
+    }
+
+    /**
+     * extract_content() must decode content from the self-closing block format.
+     * WordPress writes <!-- wp:name {...} /--> (void block) when there is no inner content.
+     */
+    public function test_extract_content_handles_self_closing_format(): void {
+        $block = '<!-- wp:wpam/markdown {"content":"## Title\n\nSome **content**."} /-->';
+
+        $this->assertSame(
+            "## Title\n\nSome **content**.",
+            Response_Shaper::extract_content( $block )
+        );
+    }
+
+    /**
+     * extract_content() must handle the old raw-markdown-between-delimiters format.
+     */
+    public function test_extract_content_handles_old_raw_format(): void {
+        $block = "<!-- wp:wpam/markdown -->\nSome **markdown**\n<!-- /wp:wpam/markdown -->";
+
+        $this->assertSame( 'Some **markdown**', Response_Shaper::extract_content( $block ) );
+    }
+
+    /**
+     * extract_content() must pass plain markdown through unchanged.
+     */
+    public function test_extract_content_passes_through_plain_markdown(): void {
+        $plain = "## Hello\n\nJust plain markdown, no block wrappers.";
+
+        $this->assertSame( $plain, Response_Shaper::extract_content( $plain ) );
+    }
 }
