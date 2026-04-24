@@ -129,6 +129,7 @@ Bindings are read-only (`canUserEditValue` returns `false`). The `getFieldsList(
 ## Reference
 
 - [docs/abilities.md](docs/abilities.md) — full ability and REST endpoint reference, including `search-wp-docs`, `fetch-wp-doc`, and `search-github-issues`
+- [docs/relationships.md](docs/relationships.md) — how to model and validate `relation_role` + `relation_group` clusters
 - [SKILL.md](SKILL.md) — agent workflow guide: when to search, when to save, how to use the MCP tools
 - [CONTRIBUTING.md](CONTRIBUTING.md) — development setup and contribution guidelines
 
