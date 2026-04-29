@@ -74,8 +74,6 @@ class Core {
         add_action( 'wp_abilities_api_init', array( $this->external_abilities, 'register' ) );
         add_action( 'admin_menu', array( $this->settings, 'register_menu' ) );
         add_action( 'admin_init', array( $this->settings, 'register_settings' ) );
-        add_action( 'admin_post_wpam_migrate_content', array( $this->settings, 'handle_migrate_content' ) );
-        add_action( 'admin_post_wpam_migrate_keywords_to_topic', array( $this->settings, 'handle_migrate_keywords_to_topic' ) );
         add_filter( 'manage_users_columns', array( $this->settings, 'add_memories_column' ) );
         add_filter( 'manage_users_custom_column', array( $this->settings, 'render_memories_column' ), 10, 3 );
         add_filter( 'wp_editor_settings',  array( $this->editor, 'disable_tinymce'), 10, 2);

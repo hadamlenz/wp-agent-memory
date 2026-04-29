@@ -3,7 +3,7 @@
  * Plugin Name: WP Agent Memory
  * Plugin URI: https://github.com/adamlenz/wp-agent-memory
  * Description: Stores structured memory entries for AI agents and exposes them via a REST API and MCP abilities for search, retrieval, and usage-based ranking.
- * Version: 0.1.0
+ * Version: 0.1.1
  * Author: H. Adam Lenz
  * Author URI: https://profiles.wordpress.org/adrock42/
  * License: GPL-2.0-or-later
