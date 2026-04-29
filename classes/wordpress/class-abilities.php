@@ -1,14 +1,14 @@
 <?php
 /**
- * Ability registration for machine-facing read-only operations.
+ * Ability registration for machine-facing memory operations.
  *
  * @package WPAM
  */
 
 namespace WPAM\WordPress;
 
-use WPAM\WordPress\Memory\Search_Service;
-use WPAM\WordPress\Memory\Writer_Service;
+use WPAM\Memory\Search_Service;
+use WPAM\Memory\Writer_Service;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -52,10 +52,12 @@ class Abilities {
         $this->register_search_ability();
         $this->register_get_entry_ability();
         $this->register_recent_ability();
+        $this->register_list_topics_ability();
         $this->register_create_ability();
         $this->register_update_ability();
         $this->register_delete_ability();
         $this->register_mark_useful_ability();
+        $this->register_prune_topics_in_title_ability();
     }
 
     /**
@@ -89,10 +91,13 @@ class Abilities {
                     'type'       => 'object',
                     'properties' => array(
                         'query'       => array( 'type' => 'string' ),
+                        'queries'     => array( 'type' => 'array', 'items' => array( 'type' => 'string' ), 'description' => 'Explicit OR-style term list. Takes precedence over `query` when non-empty.' ),
                         'repo'        => array( 'type' => 'array', 'items' => array( 'type' => 'string' ) ),
                         'package'     => array( 'type' => 'array', 'items' => array( 'type' => 'string' ) ),
                         'symbol_type' => array( 'type' => 'array', 'items' => array( 'type' => 'string' ) ),
                         'topic'       => array( 'type' => 'array', 'items' => array( 'type' => 'string' ) ),
+                        'relation_role'  => array( 'type' => 'array', 'items' => array( 'type' => 'string' ) ),
+                        'relation_group' => array( 'type' => 'array', 'items' => array( 'type' => 'string' ) ),
                         'limit'       => array( 'type' => 'integer', 'minimum' => 1, 'maximum' => 50 ),
                     ),
                 ),
@@ -160,6 +165,40 @@ class Abilities {
     }
 
     /**
+     * Register list-topics ability schema and callback.
+     */
+    private function register_list_topics_ability(): void {
+        $this->register_ability(
+            'agent-memory/list-topics',
+            array(
+                'label'       => 'List Memory Topics',
+                'description' => 'List all memory_topic taxonomy slugs with usage counts.',
+                'input_schema' => array(
+                    'type'       => 'object',
+                    'properties' => array(),
+                ),
+                'output_schema' => array(
+                    'type'       => 'object',
+                    'properties' => array(
+                        'count'   => array( 'type' => 'integer' ),
+                        'results' => array(
+                            'type'  => 'array',
+                            'items' => array(
+                                'type'       => 'object',
+                                'properties' => array(
+                                    'slug'  => array( 'type' => 'string' ),
+                                    'count' => array( 'type' => 'integer' ),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+            array( $this, 'ability_list_topics' )
+        );
+    }
+
+    /**
      * Register ability through whichever function name exists in the runtime.
      *
      * @param string   $name       Ability name.
@@ -215,10 +254,11 @@ class Abilities {
                         'symbol_type' => array( 'type' => 'array', 'items' => array( 'type' => 'string' ) ),
                         'repo'        => array( 'type' => 'array', 'items' => array( 'type' => 'string' ) ),
                         'package'     => array( 'type' => 'array', 'items' => array( 'type' => 'string' ) ),
+                        'relation_role'  => array( 'type' => 'array', 'items' => array( 'type' => 'string' ), 'description' => 'Relation role taxonomy slugs (single value enforced).' ),
+                        'relation_group' => array( 'type' => 'array', 'items' => array( 'type' => 'string' ), 'description' => 'Relation group taxonomy slugs (single value enforced).' ),
                         'source_url'  => array( 'type' => 'string' ),
                         'source_path' => array( 'type' => 'string' ),
                         'source_ref'  => array( 'type' => 'string' ),
-                        'keywords'    => array( 'type' => 'array', 'items' => array( 'type' => 'string' ) ),
                         'rank_bias'   => array( 'type' => 'number' ),
                         'agent'       => array( 'type' => 'string', 'description' => 'Stable slug identifying the calling agent (e.g. claude-sonnet-4-6). Sets post_author; a WordPress user is created on first use.' ),
                     ),
@@ -254,10 +294,11 @@ class Abilities {
                         'symbol_type' => array( 'type' => 'array', 'items' => array( 'type' => 'string' ) ),
                         'repo'        => array( 'type' => 'array', 'items' => array( 'type' => 'string' ) ),
                         'package'     => array( 'type' => 'array', 'items' => array( 'type' => 'string' ) ),
+                        'relation_role'  => array( 'type' => 'array', 'items' => array( 'type' => 'string' ), 'description' => 'Relation role taxonomy slugs (single value enforced).' ),
+                        'relation_group' => array( 'type' => 'array', 'items' => array( 'type' => 'string' ), 'description' => 'Relation group taxonomy slugs (single value enforced).' ),
                         'source_url'  => array( 'type' => 'string' ),
                         'source_path' => array( 'type' => 'string' ),
                         'source_ref'  => array( 'type' => 'string' ),
-                        'keywords'    => array( 'type' => 'array', 'items' => array( 'type' => 'string' ) ),
                         'rank_bias'   => array( 'type' => 'number' ),
                         'agent'       => array( 'type' => 'string', 'description' => 'Stable slug identifying the calling agent (e.g. claude-sonnet-4-6). Sets post_author; a WordPress user is created on first use.' ),
                     ),
@@ -370,6 +411,36 @@ class Abilities {
     }
 
     /**
+     * Register prune-topics-in-title ability schema and callback.
+     */
+    private function register_prune_topics_in_title_ability(): void {
+        $this->register_ability(
+            'agent-memory/prune-topics-in-title',
+            array(
+                'label'       => 'Prune Topics Found in Entry Titles',
+                'description' => 'Remove memory_topic assignments when the topic phrase appears in the entry title. Terms are unassigned from entries; taxonomy terms are not deleted.',
+                'input_schema' => array(
+                    'type'       => 'object',
+                    'properties' => array(),
+                ),
+                'output_schema' => array(
+                    'type'       => 'object',
+                    'properties' => array(
+                        'scanned_entries'           => array( 'type' => 'integer' ),
+                        'updated_entries'           => array( 'type' => 'integer' ),
+                        'removed_topic_assignments' => array( 'type' => 'integer' ),
+                        'removed_by_topic'          => array(
+                            'type' => 'object',
+                        ),
+                    ),
+                ),
+            ),
+            array( $this, 'ability_prune_topics_in_title' ),
+            false
+        );
+    }
+
+    /**
      * Execute agent-memory/mark-useful.
      *
      * @param array<string, mixed> $input
@@ -397,6 +468,17 @@ class Abilities {
             'id'           => $id,
             'useful_count' => $useful,
         );
+    }
+
+    /**
+     * Execute agent-memory/prune-topics-in-title.
+     *
+     * @param array<string, mixed> $input
+     *
+     * @return array<string, mixed>
+     */
+    public function ability_prune_topics_in_title( array $input = array() ): array {
+        return $this->writer_service->prune_topics_in_title();
     }
 
     /**
@@ -447,6 +529,9 @@ class Abilities {
             );
         }
 
+        $topic_slugs              = ! empty( $entry['topic'] ) ? (array) $entry['topic'] : array();
+        $entry['related_by_topic'] = $this->search_service->get_related_by_topic( $id, $topic_slugs );
+
         return $entry;
     }
 
@@ -460,6 +545,22 @@ class Abilities {
     public function ability_list_recent( array $input = array() ): array {
         $limit   = isset( $input['limit'] ) ? absint( $input['limit'] ) : 10;
         $results = $this->search_service->recent( $limit );
+
+        return array(
+            'count'   => count( $results ),
+            'results' => $results,
+        );
+    }
+
+    /**
+     * Execute agent-memory/list-topics.
+     *
+     * @param array<string, mixed> $input Ability input.
+     *
+     * @return array<string, mixed>
+     */
+    public function ability_list_topics( array $input = array() ): array {
+        $results = $this->search_service->list_topics();
 
         return array(
             'count'   => count( $results ),

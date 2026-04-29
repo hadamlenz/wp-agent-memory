@@ -39,3 +39,14 @@ spl_autoload_register( array( $autoloader, 'autoload' ) );
 
 // Boot singleton plugin core.
 WordPress\Core::get_instance();
+
+//flush permalinks on activation
+register_activation_hook( __FILE__, static function (): void {
+    flush_rewrite_rules();
+} );
+
+// Register WP-CLI commands when running in a CLI context.
+if ( defined( 'WP_CLI' ) && WP_CLI ) {
+    \WP_CLI::add_command( 'wpam', WordPress\CLI::class );
+}
+

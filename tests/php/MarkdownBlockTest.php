@@ -2,7 +2,7 @@
 
 use PHPUnit\Framework\TestCase;
 use League\CommonMark\CommonMarkConverter;
-use WPAM\WordPress\Memory\Response_Shaper;
+use WPAM\Memory\Response_Shaper;
 use WPAM\WordPress\Markdown_Block;
 
 /**
@@ -56,7 +56,7 @@ final class MarkdownBlockTest extends TestCase {
      */
     public function test_render_converts_markdown_to_html(): void {
         $block = new Markdown_Block();
-        $html  = $block->render( array(), '## Title' );
+        $html  = $block->convert( '## Title' );
 
         $this->assertStringContainsString( '<h2>', $html );
         $this->assertStringContainsString( 'Title', $html );
@@ -68,8 +68,8 @@ final class MarkdownBlockTest extends TestCase {
     public function test_render_empty_string_returns_empty(): void {
         $block = new Markdown_Block();
 
-        $this->assertSame( '', $block->render( array(), '' ) );
-        $this->assertSame( '', $block->render( array(), '   ' ) );
+        $this->assertSame( '', $block->convert( '' ) );
+        $this->assertSame( '', $block->convert( '   '  ) );
     }
 
     /**
@@ -77,7 +77,7 @@ final class MarkdownBlockTest extends TestCase {
      */
     public function test_render_preserves_inline_formatting(): void {
         $block = new Markdown_Block();
-        $html  = $block->render( array(), 'This is **bold** text.' );
+        $html  = $block->convert( 'This is **bold** text.' );
 
         $this->assertStringContainsString( '<strong>bold</strong>', $html );
     }

@@ -10,8 +10,8 @@ namespace WPAM\WordPress;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
-use WPAM\WordPress\Memory\Search_Service;
-use WPAM\WordPress\Memory\Writer_Service;
+use WPAM\Memory\Search_Service;
+use WPAM\Memory\Writer_Service;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -148,10 +148,11 @@ class Rest_Endpoints {
     public function search( WP_REST_Request $request ): WP_REST_Response {
         $params  = $request->get_params();
         $results = $this->search_service->search( $params );
+        $query   = Search_Service::resolve_query_terms( $params )['query'];
 
         return rest_ensure_response(
             array(
-                'query'   => (string) ( $params['query'] ?? '' ),
+                'query'   => $query,
                 'limit'   => isset( $params['limit'] ) ? (int) $params['limit'] : 10,
                 'count'   => count( $results ),
                 'results' => $results,
@@ -173,6 +174,9 @@ class Rest_Endpoints {
         if ( null === $entry ) {
             return new WP_Error( 'agent_memory_not_found', __( 'Memory entry not found.', 'wp-agent-memory' ), array( 'status' => 404 ) );
         }
+
+        $topic_slugs                = ! empty( $entry['topic'] ) ? (array) $entry['topic'] : array();
+        $entry['related_by_topic']  = $this->search_service->get_related_by_topic( $id, $topic_slugs );
 
         return rest_ensure_response( $entry );
     }
@@ -297,6 +301,9 @@ class Rest_Endpoints {
                 'required'          => false,
                 'sanitize_callback' => 'sanitize_text_field',
             ),
+            'queries'     => array(
+                'type' => 'array',
+            ),
             'repo'        => array(
                 'type' => 'array',
             ),
@@ -307,6 +314,12 @@ class Rest_Endpoints {
                 'type' => 'array',
             ),
             'topic'       => array(
+                'type' => 'array',
+            ),
+            'relation_role'  => array(
+                'type' => 'array',
+            ),
+            'relation_group' => array(
                 'type' => 'array',
             ),
             'limit'       => array(

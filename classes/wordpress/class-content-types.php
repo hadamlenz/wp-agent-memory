@@ -7,7 +7,8 @@
 
 namespace WPAM\WordPress;
 
-use WPAM\WordPress\Memory\Search_Service;
+use WPAM\Memory\Relation_Helper;
+use WPAM\Memory\Search_Service;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -24,6 +25,8 @@ class Content_Types {
         'memory_package'     => 'Package',
         'memory_topic'       => 'Topic',
         'memory_symbol_type' => 'Symbol Type',
+        'memory_relation_role'  => 'Relation Role',
+        'memory_relation_group' => 'Relation Group',
     );
 
     /**
@@ -32,14 +35,18 @@ class Content_Types {
     public function register(): void {
         $this->register_post_type();
         $this->register_taxonomies();
+        $this->seed_locked_relation_roles();
         $this->register_meta();
         $this->register_cache_invalidation_hooks();
+        $this->maybe_run_relation_taxonomy_backfill();
     }
 
     /**
      * Register the memory_entry post type.
      */
     private function register_post_type(): void {
+        add_filter( 'use_block_editor_for_post_type', array( $this, 'disable_block_editor' ), 10, 2 );
+
         register_post_type(
             'memory_entry',
             array(
@@ -81,9 +88,58 @@ class Content_Types {
     }
 
     /**
-     * Register filter taxonomies for repo/package/topic/symbol type dimensions.
+     * Disable the block editor for memory_entry posts.
+     *
+     * @param bool   $use_block_editor Whether to use the block editor.
+     * @param string $post_type        The post type slug.
+     * @return bool
+     */
+    public function disable_block_editor( bool $use_block_editor, string $post_type ): bool {
+        if ( 'memory_entry' === $post_type ) {
+            return false;
+        }
+        return $use_block_editor;
+    }
+
+    /**
+     * Register the wpam/entry-stats block binding source.
+     * Allows paragraph (and other) blocks in templates to bind to useful_count,
+     * usage_count, and last_used_gmt for any memory_entry post.
+     */
+    public function register_block_bindings(): void {
+        if ( ! function_exists( 'register_block_bindings_source' ) ) {
+            return;
+        }
+
+        register_block_bindings_source(
+            'wpam/entry-stats',
+            array(
+                'label'              => __( 'Memory Entry Stats', 'wp-agent-memory' ),
+                'uses_context'       => array( 'postId' ),
+                'get_value_callback' => static function ( array $source_args, $block_instance ): mixed {
+                    $post_id = $block_instance->context['postId'] ?? 0;
+                    if ( ! $post_id ) {
+                        $post_id = get_the_ID();
+                    }
+
+                    $key = $source_args['key'] ?? '';
+
+                    if ( ! $post_id || ! in_array( $key, array( 'useful_count', 'usage_count', 'last_used_gmt' ), true ) ) {
+                        return null;
+                    }
+
+                    return get_post_meta( (int) $post_id, $key, true );
+                },
+            )
+        );
+    }
+
+    /**
+     * Register filter taxonomies for memory dimensions, including relation role/group.
      */
     private function register_taxonomies(): void {
+        add_filter( 'pre_insert_term', array( $this, 'validate_locked_relation_role_term' ), 10, 2 );
+
         foreach ( $this->taxonomies as $taxonomy => $label ) {
             register_taxonomy(
                 $taxonomy,
@@ -108,6 +164,107 @@ class Content_Types {
                 )
             );
         }
+    }
+
+    /**
+     * Block creation of unknown relation role terms.
+     *
+     * @param mixed  $term     Term name being inserted.
+     * @param string $taxonomy Target taxonomy.
+     *
+     * @return mixed
+     */
+    public function validate_locked_relation_role_term( $term, string $taxonomy ) {
+        if ( Relation_Helper::ROLE_TAXONOMY !== $taxonomy ) {
+            return $term;
+        }
+
+        $slug = sanitize_title( (string) $term );
+
+        if ( '' === $slug || in_array( $slug, Relation_Helper::role_slugs(), true ) ) {
+            return $term;
+        }
+
+        return new \WP_Error(
+            'wpam_invalid_relation_role',
+            __( 'memory_relation_role is locked. Use one of the supported relation roles.', 'wp-agent-memory' )
+        );
+    }
+
+    /**
+     * Ensure locked relation role terms exist.
+     */
+    private function seed_locked_relation_roles(): void {
+        foreach ( Relation_Helper::role_labels() as $slug => $label ) {
+            if ( get_term_by( 'slug', $slug, Relation_Helper::ROLE_TAXONOMY ) ) {
+                continue;
+            }
+
+            wp_insert_term(
+                $label,
+                Relation_Helper::ROLE_TAXONOMY,
+                array(
+                    'slug' => $slug,
+                )
+            );
+        }
+    }
+
+    /**
+     * One-time migration that backfills relation role/group taxonomies from prose status lines.
+     */
+    private function maybe_run_relation_taxonomy_backfill(): void {
+        if ( '1' === (string) get_option( 'wpam_relation_taxonomy_backfill_v1_done', '0' ) ) {
+            return;
+        }
+
+        $entries = get_posts(
+            array(
+                'post_type'      => 'memory_entry',
+                'post_status'    => 'publish',
+                'posts_per_page' => -1,
+                'no_found_rows'  => true,
+                'orderby'        => 'ID',
+                'order'          => 'ASC',
+            )
+        );
+
+        foreach ( $entries as $entry ) {
+            if ( ! $entry instanceof \WP_Post ) {
+                continue;
+            }
+
+            $target_id = Relation_Helper::extract_companion_target_id( $entry->post_excerpt . "\n" . $entry->post_content );
+            if ( $target_id <= 0 ) {
+                continue;
+            }
+
+            $group_slug = 'g-' . $target_id;
+
+            wp_set_post_terms( (int) $entry->ID, array( 'companion' ), Relation_Helper::ROLE_TAXONOMY, false );
+            wp_set_post_terms( (int) $entry->ID, array( $group_slug ), Relation_Helper::GROUP_TAXONOMY, false );
+
+            $target = get_post( $target_id );
+            if ( ! $target instanceof \WP_Post || 'memory_entry' !== $target->post_type || 'publish' !== $target->post_status ) {
+                continue;
+            }
+
+            wp_set_post_terms( $target_id, array( $group_slug ), Relation_Helper::GROUP_TAXONOMY, false );
+
+            $target_roles = wp_get_post_terms(
+                $target_id,
+                Relation_Helper::ROLE_TAXONOMY,
+                array(
+                    'fields' => 'slugs',
+                )
+            );
+
+            if ( is_wp_error( $target_roles ) || ! is_array( $target_roles ) || empty( $target_roles ) ) {
+                wp_set_post_terms( $target_id, array( 'canonical' ), Relation_Helper::ROLE_TAXONOMY, false );
+            }
+        }
+
+        update_option( 'wpam_relation_taxonomy_backfill_v1_done', '1', false );
     }
 
     /**
@@ -169,17 +326,6 @@ class Content_Types {
 
         register_post_meta(
             'memory_entry',
-            'keywords',
-            array_merge(
-                $shared_args,
-                array(
-                    'sanitize_callback' => array( $this, 'sanitize_keywords' ),
-                )
-            )
-        );
-
-        register_post_meta(
-            'memory_entry',
             'rank_bias',
             array(
                 'single'        => true,
@@ -196,14 +342,14 @@ class Content_Types {
         );
 
         // usage_count, useful_count, last_used_gmt are managed exclusively by Search_Service and
-        // the mark-useful ability. auth_callback => '__return_false' blocks direct REST meta writes
-        // so agents cannot manipulate ranking signals by writing to these fields themselves.
+        // the mark-useful ability. auth_callback => '__return_false' blocks REST writes while
+        // show_in_rest => true exposes the values for block bindings and the editor.
         register_post_meta(
             'memory_entry',
             'usage_count',
             array(
                 'single'            => true,
-                'show_in_rest'      => false,
+                'show_in_rest'      => true,
                 'type'              => 'integer',
                 'default'           => 0,
                 'auth_callback'     => '__return_false',
@@ -216,7 +362,7 @@ class Content_Types {
             'useful_count',
             array(
                 'single'            => true,
-                'show_in_rest'      => false,
+                'show_in_rest'      => true,
                 'type'              => 'integer',
                 'default'           => 0,
                 'auth_callback'     => '__return_false',
@@ -229,27 +375,13 @@ class Content_Types {
             'last_used_gmt',
             array(
                 'single'            => true,
-                'show_in_rest'      => false,
+                'show_in_rest'      => true,
                 'type'              => 'string',
                 'default'           => '',
                 'auth_callback'     => '__return_false',
                 'sanitize_callback' => 'sanitize_text_field',
             )
         );
-    }
-
-    /**
-     * Normalize stored keywords into a comma-separated sanitized list.
-     *
-     * @param mixed $value Raw meta value.
-     *
-     * @return string
-     */
-    public function sanitize_keywords( $value ): string {
-        $value = is_string( $value ) ? $value : '';
-        $parts = array_filter( array_map( 'trim', explode( ',', $value ) ) );
-
-        return implode( ',', array_map( 'sanitize_text_field', $parts ) );
     }
 
     /**

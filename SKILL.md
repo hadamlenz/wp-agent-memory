@@ -6,7 +6,12 @@ description: Working with the wp-agent-memory REST API — endpoints, field sche
 ## Agent Workflow
 
 ### At the start of every task
-Search before responding. Identify 1–3 topic keywords from the user's request and call `agent-memory/search` with `params.query`.
+
+**When working in the `wp-agent-memory` repository:** Fetch entry #264 (`agent-memory/get-entry`) first for plugin orientation — content model, file map, architectural decisions, and available APIs. Then search.
+
+Search before responding. Identify 1–3 topic keywords from the user's request and call `agent-memory/search` with `params.query` (or `params.queries` for explicit term arrays like `["hover","vars"]`).
+
+**When debugging:** run a second search after you identify the root cause, using symptom or error terms (e.g. "binding value empty frontend", "markdown not rendering"). The first search catches patterns; the second catches specific gotchas.
 
 ### At the end of a task
 If a retrieved memory genuinely shaped your approach or provided the correct solution, call `agent-memory/mark-useful` with `params.id` (from the search result), `params.agent` (your model slug), and an optional `params.context` note.
@@ -14,6 +19,18 @@ If a retrieved memory genuinely shaped your approach or provided the correct sol
 **Do not mark useful if:** the memory was retrieved but ignored, was stale/incorrect, or didn't influence the response.
 
 **Why it matters:** The `useful_count` field on each search result reflects how often agents have marked that entry as genuinely useful. Entries with higher useful counts surface higher in future searches (log-scaled, time-decayed). Calling `mark-useful` is how the system learns which memories are actually reliable.
+
+### After retrieving an entry
+
+If the returned entry has a `related_by_topic` array (Option B is live), scan the titles and fetch any that look relevant before proceeding. The field is populated automatically — no extra call needed.
+
+If `related_by_topic` is absent (older API), check whether the entry has `topic` slugs and run a follow-up search:
+
+```json
+{ "ability_name": "agent-memory/search", "parameters": { "topic": ["<slug1>", "<slug2>"], "limit": 5 } }
+```
+
+Exclude the entry you just retrieved. Surface any matches as: "This memory shares topics with N others — [Title A], [Title B]. Check if they're relevant before proceeding." Skip if the entry has no topics or the follow-up returns no results.
 
 ### What to save
 
@@ -35,6 +52,8 @@ Base path: `/wp-json/agent-memory/v1`
 
 **Auth:** HTTP Basic (WordPress Application Password). See [Authentication](#authentication) below.
 
+**Relationship model (v1):** relation metadata is cluster-based taxonomy data (`relation_role` + `relation_group`), not explicit per-edge links. A one-time migration backfills `Status: Companion to [#<id> ...]` prose into these taxonomies.
+
 ### Search
 
 `GET /search`
@@ -42,11 +61,16 @@ Base path: `/wp-json/agent-memory/v1`
 | Parameter | Type | Description |
 |---|---|---|
 | `query` | string | Full-text search query |
+| `queries` | array of strings | Explicit OR-style search terms. When present/non-empty, takes precedence over `query`. |
 | `topic` | array of slugs | Filter by topic |
 | `repo` | array of slugs | Filter by repository |
 | `package` | array of slugs | Filter by package |
 | `symbol_type` | array of slugs | Filter by symbol type |
+| `relation_role` | array of slugs | Filter by relation role taxonomy |
+| `relation_group` | array of slugs | Filter by relation group taxonomy |
 | `limit` | integer | Max results (1–50, default 10) |
+
+`queries` uses OR semantics: results can match any term, and entries matching more terms score higher.
 
 **Search result shape:**
 
@@ -76,6 +100,12 @@ Base path: `/wp-json/agent-memory/v1`
 
 `GET /entry/{id}`
 
+Returns all fields from the search result shape plus full `content`, `source_ref`, `rank_bias`, `modified_gmt`, and:
+
+| Field | Type | Description |
+|---|---|---|
+| `related_by_topic` | array | Entries sharing at least one topic: `[{id, title, shared_topics}]`. Empty array if no overlap. Max 5. |
+
 ### Create Entry
 
 `POST /entry` — JSON body
@@ -89,13 +119,16 @@ Base path: `/wp-json/agent-memory/v1`
 | `agent` | string | — | Agent slug (see Agent Authorship) |
 | `repo` | array of slugs | — | Associated repositories |
 | `package` | array of slugs | — | Associated packages |
+| `relation_role` | array of slugs | — | Relation role taxonomy slugs (single value enforced) |
+| `relation_group` | array of slugs | — | Relation group taxonomy slugs (single value enforced) |
 | `symbol_type` | array of slugs | — | Symbol type classification |
 | `symbol_name` | string | — | Symbol name |
 | `source_path` | string | — | File path |
 | `source_ref` | string | — | Git ref or commit SHA |
 | `source_url` | string | — | Source URL |
-| `keywords` | array of strings | — | Additional search keywords |
 | `rank_bias` | float | — | Ranking weight adjustment |
+
+**Relation model (v1):** relationships are cluster-based taxonomy metadata (`relation_role` + `relation_group`), not explicit edge records.
 
 ### Update Entry
 
@@ -132,9 +165,7 @@ Returns `{"marked": true, "id": <id>, "useful_count": <n>}`.
 
 Send **raw characters** in `content` — never HTML entities. Write `=>` not `=&gt;`, `<` not `&lt;`. The plugin stores and retrieves content so agents always see the original characters back.
 
-Content is stored as a `wpam/markdown` Gutenberg block internally. Send plain Markdown — the plugin wraps and unwraps it transparently. Agents always receive clean Markdown back.
-
-Do not use JSON unicode escapes (e.g. `\u002d`) in content text. Write the actual character (`-`). Unicode escapes in block attribute JSON are decoded by the block editor during re-serialization, which causes a mismatch with stored content and triggers block validation errors.
+Send plain Markdown — the plugin stores and returns it as-is. Do not use JSON unicode escapes (e.g. `\u002d`); write the actual character (`-`).
 
 ## Agent Authorship
 
@@ -150,7 +181,7 @@ The `author` field (display name) is returned in all entry and search responses.
 
 All endpoints require HTTP Basic Auth using a WordPress Application Password. The credential is stored in your MCP config as an `Authorization` header — see the Agent Setup section in [README.md](README.md) for setup steps.
 
-Read endpoints require the `read` capability (Author role or above). Write endpoints (`create-entry`, `update-entry`, `delete-entry`, `mark-useful`) require `edit_pages` (Editor role or above).
+Read endpoints require the `read` capability (Author role or above). Write endpoints (`create-entry`, `update-entry`, `delete-entry`, `mark-useful`) and write abilities (`prune-topics-in-title`) require `edit_pages` (Editor role or above).
 
 ---
 
@@ -175,10 +206,12 @@ Tool names can vary by host prefix and adapter naming conventions. Treat the RES
 | `agent-memory/search` | `GET /search` |
 | `agent-memory/get-entry` | `GET /entry/{id}` |
 | `agent-memory/list-recent` | `GET /recent` |
+| `agent-memory/list-topics` | MCP only |
 | `agent-memory/create-entry` | `POST /entry` |
 | `agent-memory/update-entry` | `PATCH /entry/{id}` |
 | `agent-memory/delete-entry` | `DELETE /entry/{id}` |
 | `agent-memory/mark-useful` | `POST /entry/{id}/useful` |
+| `agent-memory/prune-topics-in-title` | MCP only |
 | `agent-memory/search-wp-docs` | MCP only |
 | `agent-memory/fetch-wp-doc` | MCP only |
 | `agent-memory/search-github-issues` | MCP only |
@@ -188,6 +221,20 @@ Run `discover-abilities` to confirm the current list. For full parameter schemas
 **Search:**
 ```json
 { "ability_name": "agent-memory/search", "parameters": { "query": "hover states blocks", "limit": 5 } }
+```
+
+```json
+{ "ability_name": "agent-memory/search", "parameters": { "queries": ["hover", "vars"], "limit": 5 } }
+```
+
+**List topics:**
+```json
+{ "ability_name": "agent-memory/list-topics", "parameters": { "include_all": true } }
+```
+
+**Prune topics in titles:**
+```json
+{ "ability_name": "agent-memory/prune-topics-in-title", "parameters": { "run": true } }
 ```
 
 **Create:**
