@@ -529,6 +529,9 @@ class Abilities {
             );
         }
 
+        $topic_slugs              = ! empty( $entry['topic'] ) ? (array) $entry['topic'] : array();
+        $entry['related_by_topic'] = $this->search_service->get_related_by_topic( $id, $topic_slugs );
+
         return $entry;
     }
 

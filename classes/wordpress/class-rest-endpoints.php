@@ -175,6 +175,9 @@ class Rest_Endpoints {
             return new WP_Error( 'agent_memory_not_found', __( 'Memory entry not found.', 'wp-agent-memory' ), array( 'status' => 404 ) );
         }
 
+        $topic_slugs                = ! empty( $entry['topic'] ) ? (array) $entry['topic'] : array();
+        $entry['related_by_topic']  = $this->search_service->get_related_by_topic( $id, $topic_slugs );
+
         return rest_ensure_response( $entry );
     }
 

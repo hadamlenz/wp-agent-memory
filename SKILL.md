@@ -20,6 +20,18 @@ If a retrieved memory genuinely shaped your approach or provided the correct sol
 
 **Why it matters:** The `useful_count` field on each search result reflects how often agents have marked that entry as genuinely useful. Entries with higher useful counts surface higher in future searches (log-scaled, time-decayed). Calling `mark-useful` is how the system learns which memories are actually reliable.
 
+### After retrieving an entry
+
+If the returned entry has a `related_by_topic` array (Option B is live), scan the titles and fetch any that look relevant before proceeding. The field is populated automatically — no extra call needed.
+
+If `related_by_topic` is absent (older API), check whether the entry has `topic` slugs and run a follow-up search:
+
+```json
+{ "ability_name": "agent-memory/search", "parameters": { "topic": ["<slug1>", "<slug2>"], "limit": 5 } }
+```
+
+Exclude the entry you just retrieved. Surface any matches as: "This memory shares topics with N others — [Title A], [Title B]. Check if they're relevant before proceeding." Skip if the entry has no topics or the follow-up returns no results.
+
 ### What to save
 
 Save memories for:
@@ -87,6 +99,12 @@ Base path: `/wp-json/agent-memory/v1`
 ### Get Entry
 
 `GET /entry/{id}`
+
+Returns all fields from the search result shape plus full `content`, `source_ref`, `rank_bias`, `modified_gmt`, and:
+
+| Field | Type | Description |
+|---|---|---|
+| `related_by_topic` | array | Entries sharing at least one topic: `[{id, title, shared_topics}]`. Empty array if no overlap. Max 5. |
 
 ### Create Entry
 

@@ -643,6 +643,56 @@ class Search_Service {
     }
 
     /**
+     * Return entries that share at least one topic with the given entry.
+     *
+     * @param int      $exclude_id  Entry ID to exclude from results.
+     * @param string[] $topic_slugs Topic slugs to match against.
+     * @param int      $limit       Max results.
+     *
+     * @return array<int, array{id: int, title: string, shared_topics: string[]}>
+     */
+    public function get_related_by_topic( int $exclude_id, array $topic_slugs, int $limit = 5 ): array {
+        if ( empty( $topic_slugs ) ) {
+            return array();
+        }
+
+        $query = new \WP_Query(
+            array(
+                'post_type'      => 'memory_entry',
+                'post_status'    => 'publish',
+                'posts_per_page' => $limit,
+                'post__not_in'   => array( $exclude_id ),
+                'tax_query'      => array(
+                    array(
+                        'taxonomy' => 'memory_topic',
+                        'field'    => 'slug',
+                        'terms'    => $topic_slugs,
+                        'operator' => 'IN',
+                    ),
+                ),
+                'no_found_rows'  => true,
+                'fields'         => 'ids',
+            )
+        );
+
+        $results = array();
+        foreach ( $query->posts as $post_id ) {
+            $post_id     = (int) $post_id;
+            $terms       = get_the_terms( $post_id, 'memory_topic' );
+            $entry_slugs = is_array( $terms )
+                ? array_values( array_filter( array_map( static fn( $t ) => isset( $t->slug ) ? (string) $t->slug : '', $terms ) ) )
+                : array();
+            $results[]   = array(
+                'id'            => $post_id,
+                'title'         => get_the_title( $post_id ),
+                'shared_topics' => array_values( array_intersect( $entry_slugs, $topic_slugs ) ),
+            );
+        }
+
+        return $results;
+    }
+
+    /**
      * Read taxonomy term slugs for one post/taxonomy pair.
      *
      * @param int    $post_id  Post ID.
